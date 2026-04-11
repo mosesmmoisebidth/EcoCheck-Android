@@ -1,18 +1,21 @@
 package com.moses.inspectionapp.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.moses.inspectionapp.ui.theme.AppColors
@@ -70,11 +73,13 @@ private fun PaginationPageButton(
     onClick: () -> Unit,
 ) {
     val background = if (selected) AppColors.NavyDark else AppColors.CardSurface
-    val textColor = if (selected) AppColors.TextOnDark else AppColors.TextPrimary
+    val textColor = if (selected) AppColors.TextOnDark else AppColors.TextSecondary
+    val border = if (selected) null else BorderStroke(1.dp, AppColors.BorderLight)
     Surface(
         color = background,
-        shape = RoundedCornerShape(10.dp),
-        modifier = Modifier.size(34.dp),
+        shape = CircleShape,
+        border = border,
+        modifier = Modifier.size(36.dp),
         onClick = onClick,
     ) {
         Row(
@@ -97,22 +102,23 @@ private fun PaginationIconButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit,
 ) {
-    val background = if (enabled) AppColors.CardSurface else AppColors.SteelBlueTint
-    val tint = if (enabled) AppColors.TextPrimary else AppColors.TextSecondary
+    val background = AppColors.SteelBlueTint
+    val tint = AppColors.SteelBlue
     Surface(
         color = background,
-        shape = RoundedCornerShape(10.dp),
-        modifier = Modifier.size(34.dp),
+        shape = CircleShape,
+        modifier = Modifier.size(36.dp),
         onClick = { if (enabled) onClick() },
     ) {
         Row(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            androidx.compose.material3.Icon(
+            Icon(
                 imageVector = icon,
                 contentDescription = null,
                 tint = tint,
+                modifier = Modifier.alpha(if (enabled) 1f else 0.4f),
             )
         }
     }

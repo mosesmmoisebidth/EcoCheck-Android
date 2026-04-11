@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.moses.inspectionapp.ui.theme.AppColors
+import com.moses.inspectionapp.ui.theme.ButtonShape
 
 enum class PrimaryButtonTone {
     Primary,
@@ -71,7 +72,7 @@ fun PrimaryButton(
         onClick = onClick,
         enabled = enabled && !isLoading,
         interactionSource = interactionSource,
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+        shape = ButtonShape,
         colors = ButtonDefaults.buttonColors(
             containerColor = containerColor,
             contentColor = Color.White,

@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.moses.inspectionapp.ui.theme.AppColors
+import com.moses.inspectionapp.ui.theme.ButtonShape
 
 @Composable
 fun SecondaryButton(
@@ -46,7 +47,7 @@ fun SecondaryButton(
         onClick = onClick,
         enabled = enabled,
         interactionSource = interactionSource,
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+        shape = ButtonShape,
         border = BorderStroke(1.5.dp, AppColors.SteelBlue),
         colors = ButtonDefaults.outlinedButtonColors(
             contentColor = AppColors.SteelBlue,

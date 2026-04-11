@@ -8,6 +8,7 @@ data class InspectionDraft(
     val inspectionTypeId: String? = null,
     val teamMembers: List<String> = emptyList(),
     val selectedFaultIds: Set<String> = emptySet(),
+    val answeredFaultIds: Set<String> = emptySet(),
     val adjustmentAmount: Int = 0,
     val adjustmentReason: String = "",
     val decision: Decision? = null,
