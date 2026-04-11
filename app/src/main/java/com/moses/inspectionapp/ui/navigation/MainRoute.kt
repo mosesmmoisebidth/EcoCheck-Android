@@ -23,6 +23,7 @@ object MainRoute {
     const val SyncConflicts = "sync/conflicts"
     const val Stats = "stats"
     const val Settings = "profile/settings"
+    const val Notifications = "profile/notifications"
     const val Profile = "profile"
     const val CameraCapture = "camera/capture"
     const val EditRecord = "edit/record"

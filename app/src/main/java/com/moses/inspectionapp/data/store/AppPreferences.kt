@@ -26,6 +26,7 @@ object AppPreferences {
     private const val KEY_NOTIFY_FACILITY = "notify_facility"
     private const val KEY_NOTIFY_INSPECTION = "notify_inspection"
     private const val KEY_FACILITIES_BACKUP = "facilities_backup"
+    private const val KEY_NOTIFICATION_LOG = "notification_log"
     private lateinit var prefs: SharedPreferences
 
     fun init(context: Context) {
@@ -156,6 +157,12 @@ object AppPreferences {
         get() = prefs.getString(KEY_FACILITIES_BACKUP, null)
         set(value) {
             prefs.edit().putString(KEY_FACILITIES_BACKUP, value).apply()
+        }
+
+    var notificationLogJson: String?
+        get() = prefs.getString(KEY_NOTIFICATION_LOG, null)
+        set(value) {
+            prefs.edit().putString(KEY_NOTIFICATION_LOG, value).apply()
         }
 
     val hasLanguage: Boolean

@@ -11,6 +11,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.moses.inspectionapp.R
 import com.moses.inspectionapp.data.store.AppPreferences
+import com.moses.inspectionapp.data.store.NotificationLogStore
 
 object NotificationHelper {
     private const val CHANNEL_ID = "inspection_updates"
@@ -69,6 +70,7 @@ object NotificationHelper {
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
+        NotificationLogStore.append(title, message)
         NotificationManagerCompat.from(context).notify(System.currentTimeMillis().toInt(), notification)
     }
 

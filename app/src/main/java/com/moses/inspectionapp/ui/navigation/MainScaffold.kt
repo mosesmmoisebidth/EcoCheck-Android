@@ -32,6 +32,7 @@ import com.moses.inspectionapp.ui.screens.inspections.InspectionsScreen
 import com.moses.inspectionapp.ui.screens.inspections.InspectionDetailsScreen
 import com.moses.inspectionapp.ui.screens.inspections.InspectionPdfScreen
 import com.moses.inspectionapp.ui.screens.profile.ProfileScreen
+import com.moses.inspectionapp.ui.screens.profile.NotificationHistoryScreen
 import com.moses.inspectionapp.ui.screens.profile.SettingsScreen
 import com.moses.inspectionapp.ui.screens.states.StatesDemoScreen
 import com.moses.inspectionapp.ui.screens.sync.SyncScreen
@@ -336,7 +337,15 @@ fun MainScaffold(modifier: Modifier = Modifier, onLogout: () -> Unit = {}) {
                 SyncConflictsScreen(onBack = { navController.popBackStack() })
             }
             composable(MainRoute.Stats) { StatsScreen(onBack = { navController.popBackStack() }) }
-            composable(MainRoute.Settings) { SettingsScreen(onBack = { navController.popBackStack() }) }
+            composable(MainRoute.Settings) {
+                SettingsScreen(
+                    onBack = { navController.popBackStack() },
+                    onNotificationHistory = { navController.navigate(MainRoute.Notifications) },
+                )
+            }
+            composable(MainRoute.Notifications) {
+                NotificationHistoryScreen(onBack = { navController.popBackStack() })
+            }
             composable(MainRoute.Profile) {
                 ProfileScreen(
                     onSettings = { navController.navigate(MainRoute.Settings) },

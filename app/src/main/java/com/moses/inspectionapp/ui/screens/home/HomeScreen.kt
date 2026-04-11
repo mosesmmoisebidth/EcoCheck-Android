@@ -1,7 +1,7 @@
 package com.moses.inspectionapp.ui.screens.home
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,35 +12,44 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Assessment
+import androidx.compose.material.icons.rounded.AddCircleOutline
 import androidx.compose.material.icons.rounded.Assignment
-import androidx.compose.material.icons.rounded.LocationOn
+import androidx.compose.material.icons.rounded.ArrowForwardIos
+import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Sync
+import androidx.compose.material.icons.rounded.Storefront
+import androidx.compose.material.icons.rounded.Wifi
+import androidx.compose.material.icons.rounded.WifiOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.moses.inspectionapp.R
 import com.moses.inspectionapp.data.AppContainer
-import com.moses.inspectionapp.ui.components.ActionCard
 import com.moses.inspectionapp.ui.components.OfflineBanner
-import com.moses.inspectionapp.ui.components.SectionHeader
+import com.moses.inspectionapp.data.store.SyncStateStore
 import com.moses.inspectionapp.ui.theme.AppColors
 import com.moses.inspectionapp.ui.theme.Dimens
-import com.moses.inspectionapp.ui.util.mouseWheelScroll
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 
 @Composable
 fun HomeScreen(
@@ -56,149 +65,380 @@ fun HomeScreen(
     val user = repository.userProfile.collectAsState().value
     val stats = repository.stats.collectAsState().value
     val pending = repository.pendingCounts.collectAsState().value
-    val scrollState = rememberScrollState()
+    val isSyncing by SyncStateStore.isSyncing.collectAsState()
+    val pendingCount = pending.facilities + pending.inspections
+    val infiniteTransition = rememberInfiniteTransition(label = "syncRotation")
+    val syncRotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "syncRotationValue",
+    )
 
-    Column(
+    val dotToday = Color(0xFF16A34A)
+    val dotPending = Color(0xFFE8650A)
+    val dotWeek = Color(0xFF3B82F6)
+
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(AppColors.PageBackground)
-            .mouseWheelScroll(scrollState)
-            .verticalScroll(scrollState),
+            .background(AppColors.PageBackground),
     ) {
-        OfflineBanner(lastSync = lastSyncLabel, isVisible = isOffline)
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(
-                    start = Dimens.screenPadding,
-                    end = Dimens.screenPadding,
-                    top = Dimens.itemGap,
-                    bottom = Dimens.sectionGap,
-                ),
-        ) {
+        item {
+            OfflineBanner(lastSync = lastSyncLabel, isVisible = isOffline)
+        }
+        item {
             Surface(
-                shape = RoundedCornerShape(20.dp),
-                shadowElevation = 4.dp,
+                shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp),
                 color = AppColors.NavyDark,
+                shadowElevation = 4.dp,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Box(
+                Column(
                     modifier = Modifier
-                        .background(AppColors.NavyDark)
-                        .padding(20.dp),
+                        .fillMaxWidth()
+                        .padding(horizontal = Dimens.screenPadding, vertical = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = stringResource(R.string.good_morning),
+                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                        color = AppColors.TextOnDarkMuted,
+                    )
+                    Text(
+                        text = user.fullName,
+                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                        color = AppColors.TextOnDark,
+                    )
+                    Text(
+                        text = "${user.sector} \u2022 ${user.district}",
+                        style = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp),
+                        color = AppColors.TextOnDarkMuted,
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        StatChip(
+                            label = stringResource(R.string.stat_today_label),
+                            value = stats.todayInspections.toString(),
+                            dotColor = dotToday,
+                            modifier = Modifier.weight(1f),
+                        )
+                        StatChip(
+                            label = stringResource(R.string.stat_pending_label),
+                            value = pendingCount.toString(),
+                            dotColor = dotPending,
+                            modifier = Modifier.weight(1f),
+                        )
+                        StatChip(
+                            label = stringResource(R.string.stat_week_label),
+                            value = stats.weekInspections.toString(),
+                            dotColor = dotWeek,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(Color.White.copy(alpha = 0.08f)),
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Icon(
+                            imageVector = if (isOffline) Icons.Rounded.WifiOff else Icons.Rounded.Wifi,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.5f),
+                            modifier = Modifier.size(14.dp),
+                        )
                         Text(
-                            text = stringResource(R.string.good_morning),
-                            style = MaterialTheme.typography.bodyMedium,
+                            text = if (isOffline) {
+                                "Offline - data saved locally"
+                            } else {
+                                val label = if (lastSyncLabel.isBlank()) "just now" else lastSyncLabel
+                                "Online - last synced $label"
+                            },
+                            style = MaterialTheme.typography.labelSmall,
                             color = AppColors.TextOnDarkMuted,
                         )
-                        Text(
-                            text = user.fullName,
-                            style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.SemiBold),
-                            color = AppColors.TextOnDark,
-                        )
-                        Text(
-                            text = "${user.sector} \u2022 ${user.district}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = AppColors.TextOnDarkMuted,
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Row(
-                            modifier = Modifier
-                                .horizontalScroll(rememberScrollState())
-                                .fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            StatChip(
-                                label = stringResource(R.string.stat_today_label),
-                                value = stats.todayInspections.toString(),
-                                dotColor = AppColors.AccentGreen,
-                            )
-                            StatChip(
-                                label = stringResource(R.string.stat_pending_label),
-                                value = (pending.facilities + pending.inspections).toString(),
-                                dotColor = AppColors.AccentOrange,
-                            )
-                            StatChip(
-                                label = stringResource(R.string.stat_week_label),
-                                value = stats.weekInspections.toString(),
-                                dotColor = AppColors.SteelBlueLight,
-                            )
-                        }
                     }
                 }
             }
         }
+        item {
+            Text(
+                text = stringResource(R.string.quick_actions).uppercase(),
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 1.4.sp,
+                ),
+                color = AppColors.TextSecondary,
+                modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp),
+            )
+        }
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Dimens.screenPadding),
+                verticalArrangement = Arrangement.spacedBy(Dimens.itemGap),
+            ) {
+                PrimaryActionCard(
+                    title = stringResource(R.string.new_assessment),
+                    subtitle = stringResource(R.string.start_food_safety),
+                    icon = Icons.Rounded.AddCircleOutline,
+                    iconBg = Color(0xFFEBF4FF),
+                    iconTint = AppColors.SteelBlue,
+                    onClick = onNewAssessment,
+                )
+                PrimaryActionCard(
+                    title = stringResource(R.string.enroll_facility),
+                    subtitle = stringResource(R.string.add_new_restobar),
+                    icon = Icons.Rounded.Storefront,
+                    iconBg = Color(0xFFE6F7EE),
+                    iconTint = dotToday,
+                    onClick = onEnrollFacility,
+                )
+            }
+        }
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Dimens.screenPadding, vertical = Dimens.itemGap),
+                horizontalArrangement = Arrangement.spacedBy(Dimens.itemGap),
+            ) {
+                GridActionCard(
+                    title = stringResource(R.string.my_inspections),
+                    subtitle = stringResource(R.string.view_recent_reports),
+                    icon = Icons.Rounded.Assignment,
+                    iconBg = Color(0xFFF5F0FF),
+                    iconTint = Color(0xFF7C3AED),
+                    onClick = onMyInspections,
+                    modifier = Modifier.weight(1f),
+                )
+                GridActionCard(
+                    title = stringResource(R.string.sync_now),
+                    subtitle = stringResource(R.string.upload_pending),
+                    icon = Icons.Rounded.Sync,
+                    iconBg = Color(0xFFFFF4E6),
+                    iconTint = AppColors.AccentOrange,
+                    onClick = onSyncNow,
+                    modifier = Modifier.weight(1f),
+                    rotation = if (isSyncing) syncRotation else 0f,
+                    pendingCount = pendingCount,
+                )
+            }
+        }
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Dimens.screenPadding),
+            ) {
+                PrimaryActionCard(
+                    title = stringResource(R.string.basic_stats),
+                    subtitle = stringResource(R.string.daily_weekly_totals),
+                    icon = Icons.Rounded.BarChart,
+                    iconBg = Color(0xFFFFF0F0),
+                    iconTint = AppColors.AccentRed,
+                    onClick = onStats,
+                )
+            }
+        }
+        item {
+            Spacer(modifier = Modifier.height(80.dp))
+        }
+    }
+}
+
+@Composable
+private fun StatChip(
+    label: String,
+    value: String,
+    dotColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = AppColors.NavyMid,
+        border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.08f)),
+        modifier = modifier,
+    ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Dimens.screenPadding)
-                .padding(bottom = Dimens.sectionGap),
-            verticalArrangement = Arrangement.spacedBy(Dimens.itemGap),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            SectionHeader(title = stringResource(R.string.quick_actions))
-            ActionCard(
-                title = stringResource(R.string.new_assessment),
-                description = stringResource(R.string.start_food_safety),
-                icon = Icons.Rounded.Add,
-                onClick = onNewAssessment,
-            )
-            ActionCard(
-                title = stringResource(R.string.enroll_facility),
-                description = stringResource(R.string.add_new_restobar),
-                icon = Icons.Rounded.LocationOn,
-                onClick = onEnrollFacility,
-            )
-            ActionCard(
-                title = stringResource(R.string.my_inspections),
-                description = stringResource(R.string.view_recent_reports),
-                icon = Icons.Rounded.Assignment,
-                onClick = onMyInspections,
-            )
-            ActionCard(
-                title = stringResource(R.string.sync_now),
-                description = stringResource(R.string.upload_pending),
-                icon = Icons.Rounded.Sync,
-                onClick = onSyncNow,
-            )
-            ActionCard(
-                title = stringResource(R.string.basic_stats),
-                description = stringResource(R.string.daily_weekly_totals),
-                icon = Icons.Rounded.Assessment,
-                onClick = onStats,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(dotColor, RoundedCornerShape(50)),
+                )
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 22.sp,
+                    ),
+                    color = AppColors.TextOnDark,
+                )
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 11.sp,
+                ),
+                color = AppColors.TextOnDarkMuted,
             )
         }
     }
 }
 
 @Composable
-private fun StatChip(label: String, value: String, dotColor: Color) {
+private fun PrimaryActionCard(
+    title: String,
+    subtitle: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconBg: Color,
+    iconTint: Color,
+    onClick: () -> Unit,
+) {
     Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = AppColors.NavyMid,
+        color = AppColors.CardSurface,
+        shape = RoundedCornerShape(16.dp),
+        shadowElevation = 1.dp,
+        border = BorderStroke(0.5.dp, AppColors.BorderLight),
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier.padding(18.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .background(dotColor, RoundedCornerShape(50)),
-            )
-            Column {
+            Surface(
+                color = iconBg,
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.size(52.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = iconTint,
+                        modifier = Modifier.size(26.dp),
+                    )
+                }
+            }
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = value,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-                    color = AppColors.TextOnDark,
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = AppColors.TextPrimary,
                 )
                 Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = AppColors.TextOnDarkMuted,
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
+                    color = AppColors.TextSecondary,
                 )
+            }
+            Surface(
+                color = AppColors.SteelBlueTint,
+                shape = RoundedCornerShape(50.dp),
+                modifier = Modifier.size(34.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Rounded.ArrowForwardIos,
+                        contentDescription = null,
+                        tint = AppColors.SteelBlue,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GridActionCard(
+    title: String,
+    subtitle: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconBg: Color,
+    iconTint: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    rotation: Float = 0f,
+    pendingCount: Int = 0,
+) {
+    Surface(
+        color = AppColors.CardSurface,
+        shape = RoundedCornerShape(16.dp),
+        shadowElevation = 1.dp,
+        border = BorderStroke(0.5.dp, AppColors.BorderLight),
+        onClick = onClick,
+        modifier = modifier,
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Surface(
+                color = iconBg,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.size(48.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = iconTint,
+                        modifier = Modifier
+                            .size(24.dp)
+                            .graphicsLayer { rotationZ = rotation },
+                    )
+                }
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = AppColors.TextPrimary,
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AppColors.TextSecondary,
+                )
+            }
+            if (title == stringResource(R.string.sync_now) && pendingCount > 0) {
+                Surface(
+                    color = AppColors.AccentOrange.copy(alpha = 0.15f),
+                    shape = RoundedCornerShape(50.dp),
+                ) {
+                    Text(
+                        text = "$pendingCount pending",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                        color = AppColors.AccentOrange,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    )
+                }
             }
         }
     }
