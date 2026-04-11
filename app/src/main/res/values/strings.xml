@@ -188,9 +188,17 @@
     <string name="conflict_reason_tin">TIN updated on server</string>
 
     <string name="total_fines_week">Total fines this week: %1$d RWF</string>
+    <string name="total_fines_week_label">TOTAL FINES THIS WEEK</string>
+    <string name="this_month">This Month</string>
+    <string name="total_all_time">Total All Time</string>
     <string name="top_decision">Top decision: %1$s</string>
+    <string name="top_decision_title">Top Decision</string>
+    <string name="no_inspections_yet">No inspections yet</string>
+    <string name="start_new_assessment_hint">Start a new assessment from the home screen</string>
 
     <string name="profile">Profile</string>
+    <string name="profile_photo">Profile photo</string>
+    <string name="change_photo">Change photo</string>
     <string name="profile_details">Profile Details</string>
     <string name="first_name">First name</string>
     <string name="last_name">Last name</string>

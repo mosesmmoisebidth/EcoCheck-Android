@@ -1,5 +1,6 @@
 package com.moses.inspectionapp.ui.screens.profile
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.rounded.LocationCity
 import androidx.compose.material.icons.rounded.Logout
 import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
@@ -193,6 +195,9 @@ fun ProfileScreen(onSettings: () -> Unit = {}, onLogout: () -> Unit = {}) {
             SectionHeader(title = stringResource(R.string.profile_details))
             Surface(color = AppColors.CardSurface, shape = RoundedCornerShape(12.dp), shadowElevation = 1.dp) {
                 Column(modifier = Modifier.padding(Dimens.cardPadding), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ProfilePhotoRow(
+                        initials = user.fullName.firstOrNull()?.uppercase()?.toString() ?: "?",
+                    )
                     StyledTextField(
                         value = firstName,
                         onValueChange = { firstName = it },
@@ -501,6 +506,73 @@ fun ProfileScreen(onSettings: () -> Unit = {}, onLogout: () -> Unit = {}) {
                 enabled = !isLoggingOut,
             )
             Spacer(modifier = Modifier.height(12.dp))
+        }
+    }
+}
+
+@Composable
+private fun ProfilePhotoRow(initials: String) {
+    Surface(
+        color = AppColors.SteelBlueTint,
+        shape = RoundedCornerShape(14.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { }
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Surface(
+                color = Color.White,
+                shape = CircleShape,
+                modifier = Modifier.size(56.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = initials,
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        color = AppColors.SteelBlue,
+                    )
+                }
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.profile_photo),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = AppColors.TextPrimary,
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.PhotoCamera,
+                        contentDescription = null,
+                        tint = AppColors.TextSecondary,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Text(
+                        text = stringResource(R.string.tap_add_photo),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AppColors.TextSecondary,
+                    )
+                }
+            }
+            Surface(
+                color = AppColors.CardSurface,
+                shape = RoundedCornerShape(10.dp),
+                border = BorderStroke(1.dp, AppColors.BorderLight),
+            ) {
+                Text(
+                    text = stringResource(R.string.change_photo),
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
+                    color = AppColors.SteelBlue,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                )
+            }
         }
     }
 }
