@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -113,107 +114,115 @@ fun AssessmentStartScreen(
     ) {
         AppTopBar(title = stringResource(R.string.new_assessment_title), onBack = onBack)
         OfflineBanner(lastSync = lastSyncLabel, isVisible = isOffline)
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .mouseWheelScroll(scrollState)
-                .verticalScroll(scrollState)
-                .padding(horizontal = Dimens.screenPadding, vertical = Dimens.sectionGap),
-            verticalArrangement = Arrangement.spacedBy(Dimens.sectionGap),
+                .padding(horizontal = Dimens.screenPadding),
+            contentAlignment = Alignment.TopCenter,
         ) {
-            StepProgressBar(
-                steps = steps,
-                currentStep = 1,
-                onStepClick = onStepClick,
-            )
-            StepHeaderCard(
-                title = stringResource(R.string.select_facility),
-                subtitle = stringResource(R.string.step_facility_subtitle),
-            )
-            Text(
-                text = stringResource(R.string.select_inspection_type),
-                style = MaterialTheme.typography.labelMedium,
-                color = AppColors.TextSecondary,
-            )
-            if (activeTypes.isEmpty()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = Dimens.cardMaxWidth)
+                    .mouseWheelScroll(scrollState)
+                    .verticalScroll(scrollState)
+                    .padding(vertical = Dimens.sectionGap),
+                verticalArrangement = Arrangement.spacedBy(Dimens.sectionGap),
+            ) {
+                StepProgressBar(
+                    steps = steps,
+                    currentStep = 1,
+                    onStepClick = onStepClick,
+                )
+                StepHeaderCard(
+                    title = stringResource(R.string.select_facility),
+                    subtitle = stringResource(R.string.step_facility_subtitle),
+                )
                 Text(
-                    text = stringResource(R.string.no_inspection_types),
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = stringResource(R.string.select_inspection_type),
+                    style = MaterialTheme.typography.labelMedium,
                     color = AppColors.TextSecondary,
                 )
-            } else {
+                if (activeTypes.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.no_inspection_types),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = AppColors.TextSecondary,
+                    )
+                } else {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        activeTypes.forEach { type ->
+                            AppFilterChip(
+                                label = type.name,
+                                isSelected = type.id == draft.inspectionTypeId,
+                                onClick = {
+                                    DraftStore.inspectionDraft.value = draft.copy(inspectionTypeId = type.id)
+                                },
+                            )
+                        }
+                    }
+                }
+                StyledTextField(
+                    value = query,
+                    onValueChange = setQuery,
+                    label = stringResource(R.string.search_name_tin),
+                    leadingIcon = Icons.Rounded.Search,
+                )
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    activeTypes.forEach { type ->
-                        AppFilterChip(
-                            label = type.name,
-                            isSelected = type.id == draft.inspectionTypeId,
+                    AppFilterChip(
+                        label = stringResource(R.string.search_by_tin),
+                        isSelected = searchByTin,
+                        onClick = { setSearchByTin(!searchByTin) },
+                    )
+                    SecondaryButton(
+                        text = stringResource(R.string.open_facility_search),
+                        onClick = onSearch,
+                        fullWidth = false,
+                    )
+                }
+                if (filtered.isEmpty()) {
+                    EmptyState(
+                        title = stringResource(R.string.no_facilities),
+                        message = stringResource(R.string.search_or_enroll),
+                        icon = Icons.Rounded.Storefront,
+                    )
+                } else {
+                    filtered.forEach { facility ->
+                        FacilitySelectCard(
+                            name = facility.name,
+                            tin = facility.tin,
+                            location = "${facility.sector}, ${facility.district}",
+                            selected = facility.id == selectedFacilityId,
                             onClick = {
-                                DraftStore.inspectionDraft.value = draft.copy(inspectionTypeId = type.id)
+                                DraftStore.selectedFacilityId.value = facility.id
+                                DraftStore.inspectionDraft.value = DraftStore.inspectionDraft.value.copy(
+                                    facilityId = facility.id,
+                                    facilityName = facility.name,
+                                )
                             },
                         )
                     }
                 }
-            }
-            StyledTextField(
-                value = query,
-                onValueChange = setQuery,
-                label = stringResource(R.string.search_name_tin),
-                leadingIcon = Icons.Rounded.Search,
-            )
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                AppFilterChip(
-                    label = stringResource(R.string.search_by_tin),
-                    isSelected = searchByTin,
-                    onClick = { setSearchByTin(!searchByTin) },
+                PrimaryButton(
+                    text = stringResource(R.string.continue_label),
+                    onClick = onContinue,
+                    enabled = canContinue,
                 )
                 SecondaryButton(
-                    text = stringResource(R.string.open_facility_search),
-                    onClick = onSearch,
-                    fullWidth = false,
-                    modifier = Modifier.height(44.dp),
+                    text = stringResource(R.string.enroll_new_facility),
+                    onClick = onEnrollNew,
+                    leadingIcon = Icons.Rounded.Add,
                 )
             }
-            if (filtered.isEmpty()) {
-                EmptyState(
-                    title = stringResource(R.string.no_facilities),
-                    message = stringResource(R.string.search_or_enroll),
-                    icon = Icons.Rounded.Storefront,
-                )
-            } else {
-                filtered.forEach { facility ->
-                    FacilitySelectCard(
-                        name = facility.name,
-                        tin = facility.tin,
-                        location = "${facility.sector}, ${facility.district}",
-                        selected = facility.id == selectedFacilityId,
-                        onClick = {
-                            DraftStore.selectedFacilityId.value = facility.id
-                            DraftStore.inspectionDraft.value = DraftStore.inspectionDraft.value.copy(
-                                facilityId = facility.id,
-                                facilityName = facility.name,
-                            )
-                        },
-                    )
-                }
-            }
-            PrimaryButton(
-                text = stringResource(R.string.continue_label),
-                onClick = onContinue,
-                enabled = canContinue,
-            )
-            SecondaryButton(
-                text = stringResource(R.string.enroll_new_facility),
-                onClick = onEnrollNew,
-                leadingIcon = Icons.Rounded.Add,
-            )
         }
     }
 }

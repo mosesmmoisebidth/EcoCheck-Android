@@ -3,6 +3,7 @@ package com.moses.inspectionapp.ui.screens.assessment
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,8 +17,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Cancel
@@ -52,7 +55,9 @@ import com.moses.inspectionapp.ui.components.StaggeredAnimatedItem
 import com.moses.inspectionapp.ui.theme.AppColors
 import com.moses.inspectionapp.ui.theme.CardShape
 import com.moses.inspectionapp.ui.theme.Dimens
+import com.moses.inspectionapp.ui.util.MARKS_PER_QUESTION
 import com.moses.inspectionapp.ui.util.assessmentStepLabels
+import com.moses.inspectionapp.ui.util.calculateAssessmentScore
 import kotlin.math.roundToInt
 
 @Composable
@@ -68,16 +73,21 @@ fun AssessmentAnswersReviewScreen(
     val faults = repository.faults.collectAsState().value
     val steps = assessmentStepLabels()
     val questions = faults.filter { it.active && it.inspectionTypeId == draft.inspectionTypeId }
+    val teamMembers = draft.teamMembers.filter { it.isNotBlank() }
     val faultIds = draft.selectedFaultIds
     val totalCount = questions.size
     val faultCount = faultIds.size
     val compliantCount = (totalCount - faultCount).coerceAtLeast(0)
+    val scoreSummary = calculateAssessmentScore(
+        totalQuestions = totalCount,
+        failedAnswers = faultCount,
+    )
     val complianceRatio = if (totalCount == 0) 0f else compliantCount / totalCount.toFloat()
     val progress by animateFloatAsState(targetValue = complianceRatio, label = "complianceProgress")
     val compliancePercent = (complianceRatio * 100).roundToInt()
-    val totalFine = questions.filter { faultIds.contains(it.id) }.sumOf { it.standardFine }
+    val orderedQuestions = questions.filter { faultIds.contains(it.id) } + questions.filterNot { faultIds.contains(it.id) }
     val pageSize = 8
-    val totalPages = if (questions.isEmpty()) 0 else (questions.size + pageSize - 1) / pageSize
+    val totalPages = if (orderedQuestions.isEmpty()) 0 else (orderedQuestions.size + pageSize - 1) / pageSize
     val (currentPage, setCurrentPage) = remember { mutableStateOf(0) }
     LaunchedEffect(totalPages) {
         if (currentPage > totalPages - 1) {
@@ -85,7 +95,7 @@ fun AssessmentAnswersReviewScreen(
         }
     }
     val pageStart = currentPage * pageSize
-    val pageItems = questions.drop(pageStart).take(pageSize)
+    val pageItems = orderedQuestions.drop(pageStart).take(pageSize)
     val pageFaults = pageItems.filter { faultIds.contains(it.id) }
     val pageCompliant = pageItems.filterNot { faultIds.contains(it.id) }
     val numberLookup = questions.withIndex().associate { it.value.id to (it.index + 1) }
@@ -100,6 +110,9 @@ fun AssessmentAnswersReviewScreen(
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
+                .fillMaxWidth()
+                .widthIn(max = Dimens.cardMaxWidth)
+                .align(Alignment.CenterHorizontally)
                 .padding(horizontal = Dimens.screenPadding, vertical = Dimens.sectionGap),
             verticalArrangement = Arrangement.spacedBy(Dimens.itemGap),
         ) {
@@ -111,8 +124,44 @@ fun AssessmentAnswersReviewScreen(
                 )
             }
 
+            if (teamMembers.isNotEmpty()) {
+                item {
+                    StaggeredAnimatedItem(index = 0) {
+                        Surface(
+                            color = AppColors.CardSurface,
+                            shape = CardShape,
+                            border = BorderStroke(0.5.dp, AppColors.BorderLight),
+                            shadowElevation = 1.dp,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(Dimens.cardPadding),
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.inspection_team),
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                                    color = AppColors.TextPrimary,
+                                )
+                                Row(
+                                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    teamMembers.forEachIndexed { index, member ->
+                                        TeamMemberChip(
+                                            label = member,
+                                            isLead = index == 0,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             item {
-                StaggeredAnimatedItem(index = 0) {
+                StaggeredAnimatedItem(index = if (teamMembers.isEmpty()) 0 else 1) {
                     Surface(
                         color = AppColors.CardSurface,
                         shape = CardShape,
@@ -221,6 +270,11 @@ fun AssessmentAnswersReviewScreen(
                                 style = MaterialTheme.typography.labelSmall,
                                 color = AppColors.TextSecondary,
                             )
+                            Text(
+                                text = "Score: ${scoreSummary.scoreOutOf100}/100 (${scoreSummary.rawScore}/${scoreSummary.rawMax})",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                                color = AppColors.SteelBlue,
+                            )
                         }
                     }
                 }
@@ -249,7 +303,6 @@ fun AssessmentAnswersReviewScreen(
                                 number = displayIndex,
                                 question = fault.name,
                                 isFault = true,
-                                fineAmount = fault.standardFine,
                             )
                         }
                     }
@@ -268,7 +321,6 @@ fun AssessmentAnswersReviewScreen(
                                 number = displayIndex,
                                 question = fault.name,
                                 isFault = false,
-                                fineAmount = fault.standardFine,
                             )
                         }
                     }
@@ -288,6 +340,8 @@ fun AssessmentAnswersReviewScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .widthIn(max = Dimens.cardMaxWidth)
+                .align(Alignment.CenterHorizontally)
                 .padding(horizontal = Dimens.screenPadding, vertical = Dimens.smallGap),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
@@ -304,14 +358,14 @@ fun AssessmentAnswersReviewScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = stringResource(R.string.total_fine),
+                        text = "Score",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                         color = AppColors.TextPrimary,
                     )
                     Text(
-                        text = stringResource(R.string.rwf_amount, totalFine),
+                        text = "${scoreSummary.scoreOutOf100}/100",
                         style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                        color = if (totalFine == 0) AppColors.TextSecondary else AppColors.AccentRed,
+                        color = AppColors.SteelBlue,
                     )
                 }
             }
@@ -323,6 +377,26 @@ fun AssessmentAnswersReviewScreen(
             SecondaryButton(text = stringResource(R.string.back), onClick = onBack)
             Spacer(modifier = Modifier.height(4.dp))
         }
+    }
+}
+
+@Composable
+private fun TeamMemberChip(
+    label: String,
+    isLead: Boolean,
+) {
+    val background = if (isLead) AppColors.SteelBlueTint else AppColors.AccentGreenBg
+    val textColor = if (isLead) AppColors.SteelBlue else AppColors.AccentGreen
+    Surface(
+        color = background,
+        shape = RoundedCornerShape(50.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = textColor,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+        )
     }
 }
 
@@ -366,7 +440,6 @@ private fun AnswerRowCard(
     number: Int,
     question: String,
     isFault: Boolean,
-    fineAmount: Int,
 ) {
     val cardColor = if (isFault) AppColors.AccentRedBg else AppColors.CardSurface
     val borderColor = if (isFault) AppColors.AccentRed else AppColors.AccentGreen
@@ -374,7 +447,7 @@ private fun AnswerRowCard(
     val numberColor = if (isFault) AppColors.AccentRed else AppColors.SteelBlue
     val chipColor = if (isFault) AppColors.AccentRed else AppColors.AccentGreen
     val chipBg = if (isFault) AppColors.AccentRed.copy(alpha = 0.15f) else AppColors.AccentGreen.copy(alpha = 0.15f)
-    val fineLabel = if (isFault) stringResource(R.string.rwf_amount, fineAmount) else stringResource(R.string.rwf_amount, 0)
+    val markLabel = if (isFault) "0/$MARKS_PER_QUESTION" else "$MARKS_PER_QUESTION/$MARKS_PER_QUESTION"
 
     Surface(
         color = cardColor,
@@ -426,7 +499,7 @@ private fun AnswerRowCard(
                     )
                     if (isFault) {
                         Text(
-                            text = "Fine applied",
+                            text = "0 marks recorded",
                             style = MaterialTheme.typography.labelSmall,
                             color = AppColors.AccentRed,
                         )
@@ -445,7 +518,7 @@ private fun AnswerRowCard(
                         )
                     }
                     Text(
-                        text = fineLabel,
+                        text = "$markLabel marks",
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = if (isFault) FontWeight.SemiBold else FontWeight.Normal),
                         color = if (isFault) chipColor else AppColors.TextSecondary,
                     )

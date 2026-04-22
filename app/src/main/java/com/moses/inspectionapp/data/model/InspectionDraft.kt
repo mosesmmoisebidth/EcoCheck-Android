@@ -19,7 +19,6 @@ data class InspectionDraft(
     val createdBy: String = "",
 )
 
-fun InspectionDraft.totalFine(faults: List<Fault>): Int {
-    val faultsTotal = faults.filter { selectedFaultIds.contains(it.id) }.sumOf { it.standardFine }
-    return faultsTotal + adjustmentAmount
+fun InspectionDraft.totalFine(_faults: List<Fault>): Int {
+    return adjustmentAmount
 }

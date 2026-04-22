@@ -16,8 +16,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.moses.inspectionapp.ui.theme.AppColors
 import com.moses.inspectionapp.ui.theme.ChipShape
@@ -57,6 +59,7 @@ fun StatusChip(
             .background(background, ChipShape)
             .padding(horizontal = 10.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier = Modifier
@@ -67,6 +70,8 @@ fun StatusChip(
             text = text,
             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
             color = contentColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }

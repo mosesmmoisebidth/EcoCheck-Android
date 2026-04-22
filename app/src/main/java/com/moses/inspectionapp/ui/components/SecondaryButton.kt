@@ -26,6 +26,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.moses.inspectionapp.ui.theme.AppColors
 import com.moses.inspectionapp.ui.theme.ButtonShape
+import com.moses.inspectionapp.ui.theme.LocalAppSpacing
+import com.moses.inspectionapp.ui.theme.LocalAppTypography
 
 @Composable
 fun SecondaryButton(
@@ -36,6 +38,8 @@ fun SecondaryButton(
     leadingIcon: ImageVector? = null,
     modifier: Modifier = Modifier,
 ) {
+    val sp = LocalAppSpacing.current
+    val ty = LocalAppTypography.current
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val bgColor by animateColorAsState(
@@ -56,10 +60,10 @@ fun SecondaryButton(
         ),
         modifier = modifier
             .then(if (fullWidth) Modifier.fillMaxWidth() else Modifier)
-            .height(52.dp),
+            .height(sp.buttonHeight),
     ) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(sp.itemSpacing / 1.5f),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (leadingIcon != null) {
@@ -67,14 +71,14 @@ fun SecondaryButton(
                     imageVector = leadingIcon,
                     contentDescription = null,
                     tint = AppColors.SteelBlue,
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(sp.iconSize * 0.75f),
                 )
             }
             Text(
                 text = text,
                 style = MaterialTheme.typography.bodyLarge.copy(
                     fontWeight = FontWeight.Medium,
-                    fontSize = 15.sp,
+                    fontSize = ty.bodyLarge,
                 ),
                 color = AppColors.SteelBlue,
             )

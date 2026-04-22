@@ -12,13 +12,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.FormatListBulleted
-import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.Icon
@@ -51,6 +51,7 @@ import com.moses.inspectionapp.ui.components.StaggeredAnimatedItem
 import com.moses.inspectionapp.ui.theme.AppColors
 import com.moses.inspectionapp.ui.theme.CardShape
 import com.moses.inspectionapp.ui.theme.Dimens
+import com.moses.inspectionapp.ui.util.MARKS_PER_QUESTION
 import com.moses.inspectionapp.ui.util.assessmentStepLabels
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -71,7 +72,6 @@ fun AssessmentQuestionsPreviewScreen(
     val steps = assessmentStepLabels()
     val questions = faults.filter { it.active && it.inspectionTypeId == draft.inspectionTypeId }
     val questionCount = questions.size
-    val finePerFault = questions.firstOrNull()?.standardFine ?: 0
     val estimateMinutes = max(1, (questionCount * 0.5f).roundToInt())
     val pageSize = 8
     val totalPages = if (questions.isEmpty()) 0 else (questions.size + pageSize - 1) / pageSize
@@ -91,162 +91,174 @@ fun AssessmentQuestionsPreviewScreen(
     ) {
         AppTopBar(title = stringResource(R.string.question_preview_title), onBack = onBack)
         OfflineBanner(lastSync = lastSyncLabel, isVisible = isOffline)
-        LazyColumn(
+        Box(
             modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = Dimens.screenPadding, vertical = Dimens.sectionGap),
-            verticalArrangement = Arrangement.spacedBy(Dimens.itemGap),
+                .fillMaxSize()
+                .padding(horizontal = Dimens.screenPadding),
+            contentAlignment = Alignment.TopCenter,
         ) {
-            item {
-                StepProgressBar(
-                    steps = steps,
-                    currentStep = 4,
-                    onStepClick = onStepClick,
-                )
-            }
-
-            item {
-                StaggeredAnimatedItem(index = 0) {
-                    Surface(
-                        color = AppColors.NavyDark,
-                        shape = CardShape,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(20.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            Surface(
-                                color = Color.White.copy(alpha = 0.15f),
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(50.dp),
-                            ) {
-                                Text(
-                                    text = "PREVIEW",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = FontWeight.Medium,
-                                        letterSpacing = 1.2f.sp,
-                                    ),
-                                    color = Color.White,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                )
-                            }
-                            Text(
-                                text = inspectionType?.name?.let { "$it Checklist" }
-                                    ?: stringResource(R.string.question_preview_title),
-                                style = MaterialTheme.typography.headlineMedium,
-                                color = Color.White,
-                            )
-                            Row(
-                                modifier = Modifier.horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                PreviewChip(
-                                    icon = Icons.Rounded.FormatListBulleted,
-                                    label = "$questionCount Questions",
-                                )
-                                PreviewChip(
-                                    icon = Icons.Rounded.Schedule,
-                                    label = "~$estimateMinutes min",
-                                )
-                                PreviewChip(
-                                    icon = Icons.Rounded.Payments,
-                                    label = "Fine per fault: ${stringResource(R.string.rwf_amount, finePerFault)}",
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (questions.isEmpty()) {
-                item {
-                    StaggeredAnimatedItem(index = 1) {
-                        EmptyState(
-                            title = stringResource(R.string.no_faults),
-                            message = stringResource(R.string.sync_faults_hint),
-                            icon = Icons.Rounded.CheckCircle,
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = Dimens.cardMaxWidth),
+            ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(vertical = Dimens.sectionGap),
+                    verticalArrangement = Arrangement.spacedBy(Dimens.itemGap),
+                ) {
+                    item {
+                        StepProgressBar(
+                            steps = steps,
+                            currentStep = 4,
+                            onStepClick = onStepClick,
                         )
                     }
-                }
-            } else {
-                itemsIndexed(pageItems) { index, fault ->
-                    val displayIndex = pageStart + index + 1
-                    StaggeredAnimatedItem(index = index + 1) {
-                        Surface(
-                            color = AppColors.CardSurface,
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                            shadowElevation = 1.dp,
-                            border = BorderStroke(0.5.dp, AppColors.BorderLight),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+
+                    item {
+                        StaggeredAnimatedItem(index = 0) {
+                            Surface(
+                                color = AppColors.NavyDark,
+                                shape = CardShape,
+                                modifier = Modifier.fillMaxWidth(),
                             ) {
-                                Surface(
-                                    color = AppColors.SteelBlueTint,
-                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(50.dp),
-                                    modifier = Modifier.size(28.dp),
+                                Column(
+                                    modifier = Modifier.padding(Dimens.cardPadding),
+                                    verticalArrangement = Arrangement.spacedBy(Dimens.itemGap),
                                 ) {
-                                    Box(
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentAlignment = Alignment.Center,
+                                    Surface(
+                                        color = Color.White.copy(alpha = 0.15f),
+                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(50.dp),
                                     ) {
                                         Text(
-                                            text = "$displayIndex",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = AppColors.SteelBlue,
-                                            fontWeight = FontWeight.SemiBold,
+                                            text = "PREVIEW",
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                fontWeight = FontWeight.Medium,
+                                                letterSpacing = 1.2f.sp,
+                                            ),
+                                            color = Color.White,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                        )
+                                    }
+                                    Text(
+                                        text = inspectionType?.name?.let { "$it Checklist" }
+                                            ?: stringResource(R.string.question_preview_title),
+                                        style = MaterialTheme.typography.headlineMedium,
+                                        color = Color.White,
+                                    )
+                                    Row(
+                                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        PreviewChip(
+                                            icon = Icons.Rounded.FormatListBulleted,
+                                            label = "$questionCount Questions",
+                                        )
+                                        PreviewChip(
+                                            icon = Icons.Rounded.Schedule,
+                                            label = "~$estimateMinutes min",
+                                        )
+                                        PreviewChip(
+                                            icon = Icons.Rounded.CheckCircle,
+                                            label = "$MARKS_PER_QUESTION marks per question",
                                         )
                                     }
                                 }
-                                Text(
-                                    text = fault.name,
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                                    color = AppColors.TextPrimary,
-                                    modifier = Modifier.weight(1f),
-                                )
-                                Surface(
-                                    color = AppColors.StatusWarningBg,
-                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(50.dp),
-                                ) {
-                                    Text(
-                                        text = stringResource(R.string.rwf_amount, fault.standardFine),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = AppColors.StatusWarning,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    )
-                                }
                             }
                         }
                     }
+
+                    if (questions.isEmpty()) {
+                        item {
+                            StaggeredAnimatedItem(index = 1) {
+                                EmptyState(
+                                    title = stringResource(R.string.no_faults),
+                                    message = stringResource(R.string.sync_faults_hint),
+                                    icon = Icons.Rounded.CheckCircle,
+                                )
+                            }
+                        }
+                    } else {
+                        itemsIndexed(pageItems) { index, fault ->
+                            val displayIndex = pageStart + index + 1
+                            StaggeredAnimatedItem(index = index + 1) {
+                                Surface(
+                                    color = AppColors.CardSurface,
+                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                                    shadowElevation = 1.dp,
+                                    border = BorderStroke(0.5.dp, AppColors.BorderLight),
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    ) {
+                                        Surface(
+                                            color = AppColors.SteelBlueTint,
+                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(50.dp),
+                                            modifier = Modifier.size(28.dp),
+                                        ) {
+                                            Box(
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentAlignment = Alignment.Center,
+                                            ) {
+                                                Text(
+                                                    text = "$displayIndex",
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    color = AppColors.SteelBlue,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                )
+                                            }
+                                        }
+                                        Text(
+                                            text = fault.name,
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                            color = AppColors.TextPrimary,
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                        Surface(
+                                            color = AppColors.AccentGreenBg,
+                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(50.dp),
+                                        ) {
+                                            Text(
+                                                text = "$MARKS_PER_QUESTION Marks",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = AppColors.AccentGreen,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        item {
+                            PaginationRow(
+                                currentPage = currentPage,
+                                totalPages = totalPages,
+                                onPageSelected = setCurrentPage,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                    }
                 }
-                item {
-                    PaginationRow(
-                        currentPage = currentPage,
-                        totalPages = totalPages,
-                        onPageSelected = setCurrentPage,
-                        modifier = Modifier.fillMaxWidth(),
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = Dimens.smallGap),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    PrimaryButton(
+                        text = stringResource(R.string.start_questions),
+                        leadingIcon = Icons.Rounded.PlayArrow,
+                        onClick = onStartQuestions,
+                        enabled = questions.isNotEmpty(),
                     )
+                    SecondaryButton(text = stringResource(R.string.back), onClick = onBack)
+                    Spacer(modifier = Modifier.size(4.dp))
                 }
             }
-        }
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Dimens.screenPadding, vertical = Dimens.smallGap),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            PrimaryButton(
-                text = stringResource(R.string.start_questions),
-                leadingIcon = Icons.Rounded.PlayArrow,
-                onClick = onStartQuestions,
-                enabled = questions.isNotEmpty(),
-            )
-            SecondaryButton(text = stringResource(R.string.back), onClick = onBack)
-            Spacer(modifier = Modifier.size(4.dp))
         }
     }
 }

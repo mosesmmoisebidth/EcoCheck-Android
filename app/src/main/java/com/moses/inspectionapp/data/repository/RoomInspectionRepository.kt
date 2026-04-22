@@ -6,6 +6,7 @@ import com.moses.inspectionapp.data.local.AppDatabase
 import com.moses.inspectionapp.data.local.mapper.toDomain
 import com.moses.inspectionapp.data.local.mapper.toEntity
 import com.moses.inspectionapp.data.local.entity.FacilityEntity
+import com.moses.inspectionapp.data.local.entity.TeamMemberEntity
 import com.moses.inspectionapp.data.model.Facility
 import com.moses.inspectionapp.data.model.FacilityDraft
 import com.moses.inspectionapp.data.model.Fault
@@ -17,6 +18,7 @@ import com.moses.inspectionapp.data.model.PendingCounts
 import com.moses.inspectionapp.data.model.Stats
 import com.moses.inspectionapp.data.model.SyncStatus
 import com.moses.inspectionapp.data.model.UserProfile
+import com.moses.inspectionapp.data.model.parseDecision
 import com.moses.inspectionapp.data.model.totalFine
 import com.moses.inspectionapp.data.model.VisitType
 import com.moses.inspectionapp.data.remote.ApiClient
@@ -35,6 +37,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -52,6 +55,7 @@ class RoomInspectionRepository(
     private val faultDao = database.faultDao()
     private val inspectionFaultDao = database.inspectionFaultDao()
     private val inspectionTypeDao = database.inspectionTypeDao()
+    private val teamMemberDao = database.teamMemberDao()
 
     private val lastSyncFlow = lastSyncFlow
     private val logTag = "RoomInspectionRepository"
@@ -79,6 +83,16 @@ class RoomInspectionRepository(
     override val inspectionTypes: StateFlow<List<InspectionType>> =
         inspectionTypeDao.observeTypes()
             .map { list -> list.map { it.toDomain() } }
+            .stateIn(externalScope, SharingStarted.Eagerly, emptyList())
+
+    override val customTeamMembers: StateFlow<List<String>> =
+        userProfile.flatMapLatest { profile ->
+            teamMemberDao.observeByOwnerAndSector(
+                ownerUserId = profile.id,
+                sectorKey = normalizeSectorKey(profile.sector),
+            )
+        }
+            .map { members -> members.map { it.displayName } }
             .stateIn(externalScope, SharingStarted.Eagerly, emptyList())
 
     override val pendingCounts: StateFlow<PendingCounts> =
@@ -227,6 +241,33 @@ class RoomInspectionRepository(
         }
     }
 
+    override suspend fun addCustomTeamMember(name: String) {
+        val profile = UserSessionStore.profile.value
+        val displayName = normalizeName(name)
+        if (displayName.isBlank()) return
+        teamMemberDao.insert(
+            TeamMemberEntity(
+                id = UUID.randomUUID().toString(),
+                ownerUserId = profile.id,
+                sectorKey = normalizeSectorKey(profile.sector),
+                nameKey = displayName.lowercase(),
+                displayName = displayName,
+                createdAt = System.currentTimeMillis(),
+            ),
+        )
+    }
+
+    override suspend fun removeCustomTeamMember(name: String) {
+        val profile = UserSessionStore.profile.value
+        val normalized = normalizeName(name)
+        if (normalized.isBlank()) return
+        teamMemberDao.deleteByOwnerSectorAndNameKey(
+            ownerUserId = profile.id,
+            sectorKey = normalizeSectorKey(profile.sector),
+            nameKey = normalized.lowercase(),
+        )
+    }
+
     override suspend fun saveInspection(draft: InspectionDraft): String {
         val id = UUID.randomUUID().toString()
         val now = System.currentTimeMillis()
@@ -338,7 +379,7 @@ class RoomInspectionRepository(
             totalFine = fine,
             adjustmentAmount = draft.adjustmentAmount,
             adjustmentReason = draft.adjustmentReason,
-            decision = (draft.decision ?: Decision.valueOf(existing.decision)).name,
+            decision = (draft.decision ?: parseDecision(existing.decision)).name,
             comments = draft.comments,
             recommendations = draft.recommendations,
             photoPaths = updatedPhotoPaths,
@@ -369,7 +410,7 @@ class RoomInspectionRepository(
                         selectedFaultIds = draft.selectedFaultIds.toList(),
                         adjustmentAmount = draft.adjustmentAmount,
                         adjustmentReason = draft.adjustmentReason.takeIf { it.isNotBlank() },
-                        decision = (draft.decision ?: Decision.valueOf(existing.decision)).name,
+                        decision = (draft.decision ?: parseDecision(existing.decision)).name,
                         comments = draft.comments.takeIf { it.isNotBlank() },
                         recommendations = draft.recommendations.takeIf { it.isNotBlank() },
                         photoPaths = photoPayloads.takeIf { it.isNotEmpty() },
@@ -562,4 +603,12 @@ class RoomInspectionRepository(
             }
         }
     }
+}
+
+private fun normalizeSectorKey(value: String): String {
+    return value.trim().lowercase()
+}
+
+private fun normalizeName(value: String): String {
+    return value.trim().split(Regex("\\s+")).filter { it.isNotBlank() }.joinToString(" ")
 }

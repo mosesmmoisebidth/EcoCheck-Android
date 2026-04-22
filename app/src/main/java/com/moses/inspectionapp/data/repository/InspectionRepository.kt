@@ -17,6 +17,7 @@ interface InspectionRepository {
     val inspections: StateFlow<List<Inspection>>
     val faults: StateFlow<List<Fault>>
     val inspectionTypes: StateFlow<List<InspectionType>>
+    val customTeamMembers: StateFlow<List<String>>
     val pendingCounts: StateFlow<PendingCounts>
     val stats: StateFlow<Stats>
     val isOffline: StateFlow<Boolean>
@@ -25,6 +26,8 @@ interface InspectionRepository {
     suspend fun seedDefaults()
     suspend fun saveFacility(draft: FacilityDraft): String
     suspend fun updateFacility(id: String, draft: FacilityDraft)
+    suspend fun addCustomTeamMember(name: String)
+    suspend fun removeCustomTeamMember(name: String)
     suspend fun saveInspection(draft: InspectionDraft): String
     suspend fun updateInspection(id: String, draft: InspectionDraft)
     suspend fun getFacility(id: String): Facility?

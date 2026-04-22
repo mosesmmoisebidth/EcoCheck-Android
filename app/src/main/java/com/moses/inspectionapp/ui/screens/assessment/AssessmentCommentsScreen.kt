@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -68,6 +70,7 @@ import com.moses.inspectionapp.ui.components.StepHeaderCard
 import com.moses.inspectionapp.ui.components.StepProgressBar
 import com.moses.inspectionapp.ui.theme.AppColors
 import com.moses.inspectionapp.ui.theme.Dimens
+import com.moses.inspectionapp.ui.util.calculateAssessmentScore
 import com.moses.inspectionapp.ui.util.assessmentStepLabels
 import com.moses.inspectionapp.ui.util.copyUriToPhotoFile
 import com.moses.inspectionapp.ui.util.mouseWheelScroll
@@ -111,186 +114,216 @@ fun AssessmentCommentsScreen(
         }
     }
 
-    val subtotal = faults.filter { draft.selectedFaultIds.contains(it.id) }.sumOf { it.standardFine }
-    val totalFine = subtotal + draft.adjustmentAmount
+    val questionCount = faults.count { it.active && it.inspectionTypeId == draft.inspectionTypeId }
+    val scoreSummary = calculateAssessmentScore(
+        totalQuestions = questionCount,
+        failedAnswers = draft.selectedFaultIds.size,
+    )
+    val chargeAmount = draft.adjustmentAmount
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .imePadding()
             .background(AppColors.PageBackground),
     ) {
         AppTopBar(title = stringResource(R.string.comments), onBack = onBack)
         OfflineBanner(lastSync = lastSyncLabel, isVisible = isOffline)
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .mouseWheelScroll(scrollState)
-                .verticalScroll(scrollState)
-                .padding(horizontal = Dimens.screenPadding, vertical = Dimens.sectionGap),
-            verticalArrangement = Arrangement.spacedBy(Dimens.itemGap),
+                .padding(horizontal = Dimens.screenPadding),
+            contentAlignment = Alignment.TopCenter,
         ) {
-            StepProgressBar(
-                steps = steps,
-                currentStep = 7,
-                onStepClick = onStepClick,
-            )
-            StepHeaderCard(
-                title = stringResource(R.string.comments_recommendations),
-                subtitle = stringResource(R.string.step_notes_subtitle),
-            )
-
-            Surface(
-                color = AppColors.NavyDark,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Row(
-                    modifier = Modifier.padding(Dimens.cardPadding),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(Dimens.itemGap),
-                ) {
-                    Icon(imageVector = Icons.Rounded.Storefront, contentDescription = null, tint = AppColors.TextOnDark)
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(text = draft.facilityName, style = MaterialTheme.typography.titleMedium, color = AppColors.TextOnDark)
-                        Text(
-                            text = visitTypeLabel(draft.visitType ?: com.moses.inspectionapp.data.model.VisitType.FIRST_VISIT),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = AppColors.TextOnDarkMuted,
-                        )
-                    }
-                    Text(
-                        text = stringResource(R.string.rwf_amount, totalFine),
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                        color = AppColors.TextOnDark,
-                    )
-                }
-            }
-
-            SectionHeader(title = stringResource(R.string.comments_header))
-            ExpandableListTextField(
-                value = commentsState,
-                onValueChange = { commentsState = it },
-                label = stringResource(R.string.comments),
-                leadingIcon = Icons.Rounded.Comment,
-                listStyle = ListStyle.BULLET,
-            )
-            Text(
-                text = stringResource(R.string.char_count, commentsState.text.length, 500),
-                style = MaterialTheme.typography.labelSmall,
-                color = AppColors.TextSecondary,
-                modifier = Modifier.align(Alignment.End),
-            )
-
-            SectionHeader(title = stringResource(R.string.recommendations_header))
-            ExpandableListTextField(
-                value = recommendationsState,
-                onValueChange = { recommendationsState = it },
-                label = stringResource(R.string.recommendations),
-                leadingIcon = Icons.Rounded.Lightbulb,
-                listStyle = ListStyle.NUMBERED,
-            )
-            Text(
-                text = stringResource(R.string.char_count, recommendationsState.text.length, 500),
-                style = MaterialTheme.typography.labelSmall,
-                color = AppColors.TextSecondary,
-                modifier = Modifier.align(Alignment.End),
-            )
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(
-                    stringResource(R.string.quick_rec_ventilation),
-                    stringResource(R.string.quick_rec_storage),
-                ).forEach { suggestion ->
-                    Surface(
-                        shape = RoundedCornerShape(50.dp),
-                        color = AppColors.CardSurface,
-                        modifier = Modifier.border(1.dp, AppColors.SteelBlue, RoundedCornerShape(50.dp)),
-                        onClick = {
-                            recommendationsState = appendListItem(
-                                recommendationsState,
-                                suggestion,
-                                ListStyle.NUMBERED,
-                            )
-                        },
-                    ) {
-                        Text(
-                            text = suggestion,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = AppColors.SteelBlue,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        )
-                    }
-                }
-            }
-
-            SectionHeader(title = stringResource(R.string.inspection_photos))
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    .widthIn(max = Dimens.cardMaxWidth)
+                    .mouseWheelScroll(scrollState)
+                    .verticalScroll(scrollState)
+                    .padding(vertical = Dimens.sectionGap),
+                verticalArrangement = Arrangement.spacedBy(Dimens.itemGap),
             ) {
-                photoPaths.forEach { path ->
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = AppColors.CardSurface,
-                        modifier = Modifier
-                            .size(photoItemSize)
-                            .border(1.dp, AppColors.BorderLight, RoundedCornerShape(12.dp)),
+                StepProgressBar(
+                    steps = steps,
+                    currentStep = 7,
+                    onStepClick = onStepClick,
+                )
+                StepHeaderCard(
+                    title = stringResource(R.string.comments_recommendations),
+                    subtitle = stringResource(R.string.step_notes_subtitle),
+                )
+
+                Surface(
+                    color = AppColors.NavyDark,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(Dimens.cardPadding),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Dimens.itemGap),
                     ) {
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            AsyncImage(
-                                model = File(path),
-                                contentDescription = stringResource(R.string.inspection_photos),
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop,
+                        Icon(imageVector = Icons.Rounded.Storefront, contentDescription = null, tint = AppColors.TextOnDark)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = draft.facilityName, style = MaterialTheme.typography.titleMedium, color = AppColors.TextOnDark)
+                            Text(
+                                text = visitTypeLabel(draft.visitType ?: com.moses.inspectionapp.data.model.VisitType.FIRST_VISIT),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = AppColors.TextOnDarkMuted,
                             )
-                            IconButton(
-                                onClick = {
-                                    val updated = photoPaths.filterNot { it == path }
-                                    DraftStore.inspectionPhotoPaths.value = updated
-                                    DraftStore.inspectionDraft.value =
-                                        DraftStore.inspectionDraft.value.copy(photoPaths = updated)
-                                },
-                                modifier = Modifier.align(Alignment.TopEnd),
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Close,
-                                    contentDescription = stringResource(R.string.remove),
-                                    tint = AppColors.TextOnDark,
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(
+                                text = "${scoreSummary.scoreOutOf100}/100",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                color = AppColors.TextOnDark,
+                            )
+                            Text(
+                                text = "Score",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = AppColors.TextOnDarkMuted,
+                            )
+                            if (chargeAmount != 0) {
+                                Text(
+                                    text = "Charge: ${stringResource(R.string.rwf_amount, chargeAmount)}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = AppColors.TextOnDarkMuted,
                                 )
                             }
                         }
                     }
                 }
-                PhotoActionCard(
-                    title = stringResource(R.string.capture),
-                    subtitle = stringResource(R.string.camera),
-                    icon = Icons.Rounded.PhotoCamera,
-                    onClick = onCapturePhoto,
-                    modifier = Modifier.size(photoItemSize),
-                )
-                PhotoActionCard(
-                    title = stringResource(R.string.upload),
-                    subtitle = stringResource(R.string.gallery),
-                    icon = Icons.Rounded.PhotoLibrary,
-                    onClick = { galleryLauncher.launch("image/*") },
-                    modifier = Modifier.size(photoItemSize),
-                )
-            }
 
-            Spacer(modifier = Modifier.height(8.dp))
-            PrimaryButton(
-                text = stringResource(R.string.next),
-                onClick = {
-                    DraftStore.inspectionDraft.value = DraftStore.inspectionDraft.value.copy(
-                        comments = commentsState.text.trim(),
-                        recommendations = recommendationsState.text.trim(),
+                SectionHeader(title = stringResource(R.string.comments_header))
+                ExpandableListTextField(
+                    value = commentsState,
+                    onValueChange = { commentsState = it },
+                    label = stringResource(R.string.comments),
+                    leadingIcon = Icons.Rounded.Comment,
+                    listStyle = ListStyle.BULLET,
+                )
+                Text(
+                    text = stringResource(R.string.char_count, commentsState.text.length, 500),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AppColors.TextSecondary,
+                    modifier = Modifier.align(Alignment.End),
+                )
+
+                SectionHeader(title = stringResource(R.string.recommendations_header))
+                ExpandableListTextField(
+                    value = recommendationsState,
+                    onValueChange = { recommendationsState = it },
+                    label = stringResource(R.string.recommendations),
+                    leadingIcon = Icons.Rounded.Lightbulb,
+                    listStyle = ListStyle.NUMBERED,
+                )
+                Text(
+                    text = stringResource(R.string.char_count, recommendationsState.text.length, 500),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AppColors.TextSecondary,
+                    modifier = Modifier.align(Alignment.End),
+                )
+
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    listOf(
+                        stringResource(R.string.quick_rec_ventilation),
+                        stringResource(R.string.quick_rec_storage),
+                    ).forEach { suggestion ->
+                        Surface(
+                            shape = RoundedCornerShape(50.dp),
+                            color = AppColors.CardSurface,
+                            modifier = Modifier.border(1.dp, AppColors.SteelBlue, RoundedCornerShape(50.dp)),
+                            onClick = {
+                                recommendationsState = appendListItem(
+                                    recommendationsState,
+                                    suggestion,
+                                    ListStyle.NUMBERED,
+                                )
+                            },
+                        ) {
+                            Text(
+                                text = suggestion,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = AppColors.SteelBlue,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            )
+                        }
+                    }
+                }
+
+                SectionHeader(title = stringResource(R.string.inspection_photos))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    photoPaths.forEach { path ->
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = AppColors.CardSurface,
+                            modifier = Modifier
+                                .size(photoItemSize)
+                                .border(1.dp, AppColors.BorderLight, RoundedCornerShape(12.dp)),
+                        ) {
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                AsyncImage(
+                                    model = File(path),
+                                    contentDescription = stringResource(R.string.inspection_photos),
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop,
+                                )
+                                IconButton(
+                                    onClick = {
+                                        val updated = photoPaths.filterNot { it == path }
+                                        DraftStore.inspectionPhotoPaths.value = updated
+                                        DraftStore.inspectionDraft.value =
+                                            DraftStore.inspectionDraft.value.copy(photoPaths = updated)
+                                    },
+                                    modifier = Modifier.align(Alignment.TopEnd),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Close,
+                                        contentDescription = stringResource(R.string.remove),
+                                        tint = AppColors.TextOnDark,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    PhotoActionCard(
+                        title = stringResource(R.string.capture),
+                        subtitle = stringResource(R.string.camera),
+                        icon = Icons.Rounded.PhotoCamera,
+                        onClick = onCapturePhoto,
+                        modifier = Modifier.size(photoItemSize),
                     )
-                    onNext()
-                },
-            )
-            SecondaryButton(text = stringResource(R.string.back), onClick = onBack)
+                    PhotoActionCard(
+                        title = stringResource(R.string.upload),
+                        subtitle = stringResource(R.string.gallery),
+                        icon = Icons.Rounded.PhotoLibrary,
+                        onClick = { galleryLauncher.launch("image/*") },
+                        modifier = Modifier.size(photoItemSize),
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                PrimaryButton(
+                    text = stringResource(R.string.next),
+                    onClick = {
+                        DraftStore.inspectionDraft.value = DraftStore.inspectionDraft.value.copy(
+                            comments = commentsState.text.trim(),
+                            recommendations = recommendationsState.text.trim(),
+                        )
+                        onNext()
+                    },
+                )
+                SecondaryButton(text = stringResource(R.string.back), onClick = onBack)
+            }
         }
     }
 }

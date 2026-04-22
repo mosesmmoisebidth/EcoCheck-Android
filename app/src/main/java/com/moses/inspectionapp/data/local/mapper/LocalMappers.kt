@@ -9,6 +9,7 @@ import com.moses.inspectionapp.data.model.Facility
 import com.moses.inspectionapp.data.model.Fault
 import com.moses.inspectionapp.data.model.Inspection
 import com.moses.inspectionapp.data.model.InspectionType
+import com.moses.inspectionapp.data.model.parseDecision
 import com.moses.inspectionapp.data.model.SyncStatus
 import com.moses.inspectionapp.data.model.VisitType
 
@@ -52,7 +53,7 @@ fun InspectionEntity.toDomain(): Inspection {
         totalFine = totalFine,
         adjustmentAmount = adjustmentAmount,
         adjustmentReason = adjustmentReason,
-        decision = Decision.valueOf(decision),
+        decision = parseDecision(decision),
         comments = comments,
         recommendations = recommendations,
         photoPaths = photoPaths.split("|").filter { it.isNotBlank() },

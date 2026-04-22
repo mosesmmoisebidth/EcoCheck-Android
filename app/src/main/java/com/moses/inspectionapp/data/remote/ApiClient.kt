@@ -135,12 +135,18 @@ object ApiClient {
     private fun isEmulator(): Boolean {
         return Build.FINGERPRINT.startsWith("generic") ||
             Build.FINGERPRINT.startsWith("unknown") ||
+            Build.FINGERPRINT.contains("vbox", ignoreCase = true) ||
             Build.MODEL.contains("google_sdk", ignoreCase = true) ||
             Build.MODEL.contains("emulator", ignoreCase = true) ||
             Build.MODEL.contains("Android SDK built for x86", ignoreCase = true) ||
+            Build.MODEL.contains("memu", ignoreCase = true) ||
             Build.MANUFACTURER.contains("Genymotion", ignoreCase = true) ||
+            Build.MANUFACTURER.contains("microvirt", ignoreCase = true) ||
             Build.BRAND.startsWith("generic") && Build.DEVICE.startsWith("generic") ||
-            Build.PRODUCT.contains("sdk", ignoreCase = true)
+            Build.PRODUCT.contains("sdk", ignoreCase = true) ||
+            Build.PRODUCT.contains("vbox", ignoreCase = true) ||
+            Build.DEVICE.contains("vbox", ignoreCase = true) ||
+            Build.HARDWARE.contains("vbox", ignoreCase = true)
     }
 }
 

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -146,6 +147,7 @@ fun FacilityEnrollScreen(
     var selectedCellId by rememberSaveable { mutableStateOf<Int?>(null) }
     var selectedVillageId by rememberSaveable { mutableStateOf<Int?>(null) }
     val (errorMessage, setErrorMessage) = remember { mutableStateOf<String?>(null) }
+    var isSaving by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
     val role = user.role.uppercase()
     val canPickDistrict = role != "HSO" && role != "DISTRICT_MANAGER"
@@ -308,6 +310,9 @@ fun FacilityEnrollScreen(
             Column(
                 modifier = Modifier
                     .weight(1f)
+                    .fillMaxWidth()
+                    .widthIn(max = Dimens.cardMaxWidth)
+                    .align(Alignment.CenterHorizontally)
                     .mouseWheelScroll(scrollState)
                     .verticalScroll(scrollState)
                     .imePadding()
@@ -714,59 +719,84 @@ fun FacilityEnrollScreen(
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter),
         ) {
-            Column(
-                modifier = Modifier
-                    .padding(horizontal = Dimens.screenPadding, vertical = Dimens.medium),
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center,
             ) {
-                PrimaryButton(
-                    text = stringResource(R.string.save_facility),
-                    onClick = {
-                        scope.launch {
-                            val existing = repository.findFacilityByTin(tinNormalized)
-                            if (existing != null) {
-                                setErrorMessage(context.getString(R.string.tin_exists))
-                                return@launch
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .widthIn(max = Dimens.cardMaxWidth)
+                        .padding(horizontal = Dimens.screenPadding, vertical = Dimens.medium),
+                ) {
+                    if (isSaving) {
+                        LinearProgressIndicator(
+                            color = AppColors.SteelBlue,
+                            trackColor = AppColors.SteelBlueTint,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(4.dp),
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                    }
+                    PrimaryButton(
+                        text = stringResource(R.string.save_facility),
+                        onClick = {
+                            if (isSaving) return@PrimaryButton
+                            scope.launch {
+                                isSaving = true
+                                try {
+                                    setErrorMessage(null)
+                                    val existing = repository.findFacilityByTin(tinNormalized)
+                                    if (existing != null) {
+                                        setErrorMessage(context.getString(R.string.tin_exists))
+                                        return@launch
+                                    }
+                                    val draft = FacilityDraft(
+                                        name = name.trim(),
+                                        tin = tinNormalized,
+                                        ownerName = ownerName.trim(),
+                                        ownerPhone = phoneNormalized,
+                                        ownerEmail = ownerEmail.trim(),
+                                        district = districtName.trim(),
+                                        sector = sectorName.trim(),
+                                        cell = cellName.trim(),
+                                        village = villageName.trim(),
+                                        latitude = location?.latitude,
+                                        longitude = location?.longitude,
+                                        photoPath = photoPath,
+                                    )
+                                    val facilityId = runCatching { repository.saveFacility(draft) }
+                                        .onFailure { error ->
+                                            Log.e("FacilityEnroll", "Failed to save facility", error)
+                                            setErrorMessage(error.message ?: context.getString(R.string.save_failed))
+                                        }
+                                        .getOrNull()
+                                    if (facilityId == null) {
+                                        return@launch
+                                    }
+                                    DraftStore.selectedFacilityId.value = facilityId
+                                    DraftStore.inspectionDraft.value = DraftStore.inspectionDraft.value.copy(
+                                        facilityId = facilityId,
+                                        facilityName = draft.name,
+                                    )
+                                    DraftStore.facilityLocation.value = null
+                                    DraftStore.facilityPhotoPath.value = null
+                                    setErrorMessage(null)
+                                    NotificationHelper.notifyFacilitySaved(context, draft.name, isOffline)
+                                    if (!isOffline) {
+                                        SyncManager.enqueue(context)
+                                    }
+                                    onSaved()
+                                } finally {
+                                    isSaving = false
+                                }
                             }
-                            val draft = FacilityDraft(
-                                name = name.trim(),
-                                tin = tinNormalized,
-                                ownerName = ownerName.trim(),
-                                ownerPhone = phoneNormalized,
-                                ownerEmail = ownerEmail.trim(),
-                                district = districtName.trim(),
-                                sector = sectorName.trim(),
-                                cell = cellName.trim(),
-                                village = villageName.trim(),
-                                latitude = location?.latitude,
-                                longitude = location?.longitude,
-                                photoPath = photoPath,
-                             )
-                              val facilityId = runCatching { repository.saveFacility(draft) }
-                                  .onFailure { error ->
-                                      Log.e("FacilityEnroll", "Failed to save facility", error)
-                                      setErrorMessage(error.message ?: context.getString(R.string.save_failed))
-                                  }
-                                  .getOrNull()
-                              if (facilityId == null) {
-                                  return@launch
-                              }
-                              DraftStore.selectedFacilityId.value = facilityId
-                            DraftStore.inspectionDraft.value = DraftStore.inspectionDraft.value.copy(
-                                facilityId = facilityId,
-                                facilityName = draft.name,
-                            )
-                            DraftStore.facilityLocation.value = null
-                            DraftStore.facilityPhotoPath.value = null
-                            setErrorMessage(null)
-                            NotificationHelper.notifyFacilitySaved(context, draft.name, isOffline)
-                            if (!isOffline) {
-                                SyncManager.enqueue(context)
-                            }
-                            onSaved()
-                        }
-                    },
-                    enabled = canSave,
-                )
+                        },
+                        enabled = canSave,
+                        isLoading = isSaving,
+                    )
+                }
             }
         }
     }

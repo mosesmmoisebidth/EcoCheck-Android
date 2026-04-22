@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -27,6 +28,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.moses.inspectionapp.ui.theme.AppColors
+import com.moses.inspectionapp.ui.theme.LocalAppSpacing
+import com.moses.inspectionapp.ui.theme.LocalAppTypography
 
 @Composable
 fun SelectionCard(
@@ -39,6 +42,8 @@ fun SelectionCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val sp = LocalAppSpacing.current
+    val ty = LocalAppTypography.current
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val bgColor by animateColorAsState(
@@ -61,6 +66,7 @@ fun SelectionCard(
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .heightIn(min = 64.dp)
             .background(bgColor, RoundedCornerShape(12.dp))
             .border(
                 width = if (isSelected) 2.dp else 0.5.dp,
@@ -72,13 +78,13 @@ fun SelectionCard(
                 indication = null,
                 onClick = onClick,
             )
-            .padding(14.dp),
+            .padding(sp.cardPadding - 2.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(sp.itemSpacing),
     ) {
         Box(
             modifier = Modifier
-                .size(44.dp)
+                .size(sp.iconSize + 20.dp)
                 .background(
                     if (isSelected) accentColor else AppColors.PageBackground,
                     RoundedCornerShape(10.dp),
@@ -89,12 +95,20 @@ fun SelectionCard(
                 imageVector = icon,
                 contentDescription = null,
                 tint = if (isSelected) Color.White else AppColors.TextSecondary,
-                modifier = Modifier.size(22.dp),
+                modifier = Modifier.size(sp.iconSize),
             )
         }
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, style = MaterialTheme.typography.titleMedium, color = AppColors.TextPrimary)
-            Text(text = description, style = MaterialTheme.typography.bodyMedium, color = AppColors.TextSecondary)
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium.copy(fontSize = ty.titleMedium),
+                color = AppColors.TextPrimary,
+            )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = ty.bodyMedium),
+                color = AppColors.TextSecondary,
+            )
         }
         Box(
             modifier = Modifier

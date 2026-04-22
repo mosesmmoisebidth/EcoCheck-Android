@@ -2,6 +2,7 @@ package com.moses.inspectionapp.ui.components
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.keyframes
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.text.KeyboardOptions
@@ -20,6 +21,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.moses.inspectionapp.ui.theme.AppColors
+import com.moses.inspectionapp.ui.theme.LocalAppSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,6 +42,7 @@ fun StyledTextField(
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     visualTransformation: VisualTransformation = VisualTransformation.None,
 ) {
+    val sp = LocalAppSpacing.current
     val shakeOffset = remember { Animatable(0f) }
     LaunchedEffect(isError) {
         if (isError) {
@@ -99,7 +102,8 @@ fun StyledTextField(
         ),
         modifier = modifier
             .offset(x = shakeOffset.value.dp)
-            .fillMaxWidth(),
+            .fillMaxWidth()
+            .heightIn(min = sp.inputHeight),
         supportingText = {
             if (isError && !errorText.isNullOrBlank()) {
                 Text(text = errorText, color = AppColors.AccentRed, style = MaterialTheme.typography.labelSmall)

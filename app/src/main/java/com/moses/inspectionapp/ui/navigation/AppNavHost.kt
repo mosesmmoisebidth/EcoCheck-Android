@@ -6,6 +6,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.material3.windowsizeclass.WindowSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
@@ -17,7 +18,10 @@ import com.moses.inspectionapp.ui.screens.onboarding.OnboardingScreen
 import com.moses.inspectionapp.ui.screens.splash.SplashScreen
 
 @Composable
-fun AppNavHost(modifier: Modifier = Modifier) {
+fun AppNavHost(
+    windowSizeClass: WindowSizeClass,
+    modifier: Modifier = Modifier,
+) {
     val navController = rememberNavController()
     val nextRoute = when {
         !AppPreferences.hasOnboarded -> AppRoute.Onboarding.route
@@ -89,6 +93,7 @@ fun AppNavHost(modifier: Modifier = Modifier) {
         }
         composable(AppRoute.Main.route) {
             MainScaffold(
+                windowSizeClass = windowSizeClass,
                 onLogout = {
                     navController.navigate(AppRoute.Login.route) {
                         popUpTo(AppRoute.Main.route) { inclusive = true }

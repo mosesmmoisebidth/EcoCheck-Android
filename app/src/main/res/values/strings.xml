@@ -135,10 +135,10 @@
 
     <string name="decision">Decision</string>
     <string name="decision_warning">Warning</string>
-    <string name="decision_closure_immediate">Closure (Immediate)</string>
-    <string name="decision_closure_deadline">Closure with Deadline</string>
-    <string name="decision_prosecution">Prosecution Recommended</string>
-    <string name="decision_no_action">No Action / Compliant</string>
+    <string name="decision_closure_immediate">Permanent Closure</string>
+    <string name="decision_closure_deadline">Temporary Closure</string>
+    <string name="decision_prosecution">Fine</string>
+    <string name="decision_no_action">Compliant</string>
 
     <string name="comments">Comments</string>
     <string name="comments_recommendations">Comments and Recommendations</string>
@@ -170,6 +170,9 @@
 
     <string name="inspection_pdf">Inspection PDF</string>
     <string name="pdf_ready">PDF ready to share</string>
+    <string name="download_pdf">Download PDF</string>
+    <string name="pdf_saved_downloads">PDF saved to Downloads/EcoCheck</string>
+    <string name="pdf_save_failed">Unable to save PDF to Downloads</string>
     <string name="done">Done</string>
 
     <string name="sync_center">Sync Center</string>
@@ -316,7 +319,14 @@
     <string name="stat_today_label">Today</string>
     <string name="stat_pending_label">Pending</string>
     <string name="stat_week_label">This Week</string>
+    <string name="add_member">Add member</string>
+    <string name="team_member_name">Team member name</string>
+    <string name="team_member_name_hint">Enter full name</string>
+    <string name="team_member_name_required">Enter a team member name.</string>
+    <string name="team_member_input_help">Type a member name, then tap Add member.</string>
     <string name="select_team_members">Select team members for this inspection</string>
+    <string name="lead_inspector_role">Lead Inspector</string>
+    <string name="assistant_member_role">Assistant Member</string>
     <string name="hso_sector">HSO • %1$s</string>
     <string name="saving_locally">Saving locally...</string>
     <string name="gps_captured">GPS Captured</string>
@@ -351,11 +361,11 @@
     <string name="recommendations_header">Recommendations</string>
     <string name="quick_rec_ventilation">Improve ventilation</string>
     <string name="quick_rec_storage">Clean storage area</string>
-    <string name="decision_warning_desc">Issue a warning and record non-compliance.</string>
-    <string name="decision_closure_immediate_desc">Immediate closure due to critical risk.</string>
-    <string name="decision_closure_deadline_desc">Closure with a deadline for compliance.</string>
-    <string name="decision_prosecution_desc">Recommend prosecution for severe violations.</string>
-    <string name="decision_no_action_desc">Compliant, no further action required.</string>
+    <string name="decision_warning_desc">Issue a warning and document observed non-compliance.</string>
+    <string name="decision_closure_immediate_desc">Close the facility permanently due to severe risk.</string>
+    <string name="decision_closure_deadline_desc">Close the facility temporarily until corrective actions are completed.</string>
+    <string name="decision_prosecution_desc">Apply a monetary fine for this inspection.</string>
+    <string name="decision_no_action_desc">Facility is compliant with no enforcement action.</string>
     <string name="offline">No Connection</string>
     <string name="connected">Connected</string>
     <string name="changes_saved_locally">Changes saved locally</string>

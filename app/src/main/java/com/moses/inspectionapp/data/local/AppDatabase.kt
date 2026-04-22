@@ -8,12 +8,14 @@ import com.moses.inspectionapp.data.local.dao.InspectionDao
 import com.moses.inspectionapp.data.local.dao.InspectionFaultDao
 import com.moses.inspectionapp.data.local.dao.InspectionTypeDao
 import com.moses.inspectionapp.data.local.dao.SmsLogDao
+import com.moses.inspectionapp.data.local.dao.TeamMemberDao
 import com.moses.inspectionapp.data.local.entity.FacilityEntity
 import com.moses.inspectionapp.data.local.entity.FaultEntity
 import com.moses.inspectionapp.data.local.entity.InspectionEntity
 import com.moses.inspectionapp.data.local.entity.InspectionFaultEntity
 import com.moses.inspectionapp.data.local.entity.InspectionTypeEntity
 import com.moses.inspectionapp.data.local.entity.SmsLogEntity
+import com.moses.inspectionapp.data.local.entity.TeamMemberEntity
 
 @Database(
     entities = [
@@ -23,8 +25,9 @@ import com.moses.inspectionapp.data.local.entity.SmsLogEntity
         InspectionFaultEntity::class,
         SmsLogEntity::class,
         InspectionTypeEntity::class,
+        TeamMemberEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -34,4 +37,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun inspectionFaultDao(): InspectionFaultDao
     abstract fun inspectionTypeDao(): InspectionTypeDao
     abstract fun smsLogDao(): SmsLogDao
+    abstract fun teamMemberDao(): TeamMemberDao
 }

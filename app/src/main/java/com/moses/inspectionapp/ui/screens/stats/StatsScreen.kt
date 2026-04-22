@@ -24,6 +24,7 @@ import androidx.compose.material.icons.rounded.Assignment
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Gavel
+import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Icon
@@ -498,7 +499,7 @@ private fun decisionStyle(decision: Decision): DecisionStyle {
         Decision.WARNING -> DecisionStyle(AppColors.StatusWarning, Icons.Rounded.Warning)
         Decision.CLOSURE_IMMEDIATE -> DecisionStyle(AppColors.AccentRed, Icons.Rounded.Block)
         Decision.CLOSURE_DEADLINE -> DecisionStyle(AppColors.AccentOrange, Icons.Rounded.Schedule)
-        Decision.PROSECUTION_RECOMMENDED -> DecisionStyle(Color(0xFF6B21A8), Icons.Rounded.Gavel)
+        Decision.PROSECUTION_RECOMMENDED -> DecisionStyle(AppColors.AccentGold, Icons.Rounded.Payments)
         Decision.NO_ACTION -> DecisionStyle(AppColors.AccentGreen, Icons.Rounded.CheckCircle)
     }
 }

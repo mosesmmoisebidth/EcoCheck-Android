@@ -20,8 +20,22 @@ android {
         buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8085/api/\"")
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("../ecocheck.keystore")
+            storePassword = "Manisdad234!!"
+            keyAlias = "ecocheck"
+            keyPassword = "Manisdad234!!"
+        }
+    }
+
     buildTypes {
+        debug {
+            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8085/api/\"")
+        }
         release {
+            signingConfig = signingConfigs.getByName("release")
+            buildConfigField("String", "API_BASE_URL", "\"https://pisproject.taskbees.net/api/\"")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -53,6 +67,7 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.ui.text.google.fonts)
     implementation(libs.androidx.material3)
+    implementation("androidx.compose.material3:material3-window-size-class")
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
     implementation("com.airbnb.android:lottie-compose:6.4.0")
@@ -66,6 +81,7 @@ dependencies {
     implementation(libs.play.services.location)
     implementation(libs.coil.compose)
     implementation(libs.coil.svg)
+    implementation("com.caverock:androidsvg-aar:1.4")
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)

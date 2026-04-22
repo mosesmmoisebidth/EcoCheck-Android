@@ -1,6 +1,7 @@
 package com.moses.inspectionapp.ui.screens.sync
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,7 +9,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -66,6 +70,7 @@ fun SyncScreen(
     val recentItems = listOf(
         lastSyncLabel,
     )
+    val scrollState = rememberScrollState()
 
     Column(
         modifier = Modifier
@@ -73,109 +78,113 @@ fun SyncScreen(
             .background(AppColors.PageBackground),
     ) {
         AppTopBar(title = stringResource(R.string.sync_center), onBack = onBack)
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(
-                    start = Dimens.screenPadding,
-                    end = Dimens.screenPadding,
-                    top = Dimens.itemGap,
-                    bottom = Dimens.sectionGap,
-                ),
-            verticalArrangement = Arrangement.spacedBy(Dimens.sectionGap),
+                .padding(horizontal = Dimens.screenPadding),
+            contentAlignment = Alignment.TopCenter,
         ) {
-            Surface(
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = Dimens.cardMaxWidth)
+                    .verticalScroll(scrollState)
+                    .padding(top = Dimens.itemGap, bottom = Dimens.sectionGap),
+                verticalArrangement = Arrangement.spacedBy(Dimens.sectionGap),
+            ) {
+                Surface(
                 color = if (isOffline) AppColors.StatusWarningBg else AppColors.NavyDark,
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth(),
-            ) {
-                Row(
-                    modifier = Modifier.padding(Dimens.cardPadding),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(Dimens.itemGap),
                 ) {
-                    Icon(
-                        imageVector = if (isOffline) Icons.Rounded.WifiOff else Icons.Rounded.Wifi,
-                        contentDescription = null,
-                        tint = if (isOffline) AppColors.StatusWarning else AppColors.TextOnDark,
-                        modifier = Modifier.size(28.dp),
-                    )
-                    Column {
+                    Row(
+                        modifier = Modifier.padding(Dimens.cardPadding),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Dimens.itemGap),
+                    ) {
+                        Icon(
+                            imageVector = if (isOffline) Icons.Rounded.WifiOff else Icons.Rounded.Wifi,
+                            contentDescription = null,
+                            tint = if (isOffline) AppColors.StatusWarning else AppColors.TextOnDark,
+                            modifier = Modifier.size(28.dp),
+                        )
+                        Column {
+                            Text(
+                                text = if (isOffline) stringResource(R.string.offline) else stringResource(R.string.connected),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = if (isOffline) AppColors.TextPrimary else AppColors.TextOnDark,
+                            )
+                            Text(
+                                text = if (isOffline) stringResource(R.string.changes_saved_locally) else stringResource(R.string.last_sync, lastSyncLabel),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (isOffline) AppColors.TextSecondary else AppColors.TextOnDarkMuted,
+                            )
+                        }
+                    }
+                }
+
+                Surface(
+                    color = AppColors.CardSurface,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(Dimens.cardPadding),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
                         Text(
-                            text = if (isOffline) stringResource(R.string.offline) else stringResource(R.string.connected),
+                            text = stringResource(R.string.pending_records, pending.facilities + pending.inspections),
                             style = MaterialTheme.typography.titleMedium,
-                            color = if (isOffline) AppColors.TextPrimary else AppColors.TextOnDark,
+                            color = AppColors.TextPrimary,
                         )
                         Text(
-                            text = if (isOffline) stringResource(R.string.changes_saved_locally) else stringResource(R.string.last_sync, lastSyncLabel),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (isOffline) AppColors.TextSecondary else AppColors.TextOnDarkMuted,
+                            text = stringResource(R.string.pending_breakdown, pending.facilities, pending.inspections),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = AppColors.TextSecondary,
                         )
                     }
                 }
-            }
 
-            Surface(
-                color = AppColors.CardSurface,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Column(
-                    modifier = Modifier.padding(Dimens.cardPadding),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Text(
-                        text = stringResource(R.string.pending_records, pending.facilities + pending.inspections),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = AppColors.TextPrimary,
-                    )
-                    Text(
-                        text = stringResource(R.string.pending_breakdown, pending.facilities, pending.inspections),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = AppColors.TextSecondary,
-                    )
-                }
-            }
-
-            PrimaryButton(
-                text = if (isSyncing) {
-                    stringResource(R.string.syncing_progress, totalPending)
-                } else {
-                    stringResource(R.string.sync_now)
-                },
-                leadingIcon = Icons.Rounded.Sync,
-                leadingIconRotation = if (isSyncing) rotation else 0f,
-                onClick = { SyncManager.enqueue(context) },
-                enabled = !isOffline && hasPending && !isSyncing,
-                tone = PrimaryButtonTone.Accent,
-            )
-            SecondaryButton(text = stringResource(R.string.view_conflicts), onClick = onViewConflicts)
-
-            Surface(
-                color = AppColors.CardSurface,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Column(modifier = Modifier.padding(Dimens.cardPadding)) {
-                    Text(
-                        text = stringResource(R.string.recent_activity),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = AppColors.TextSecondary,
-                    )
-                    if (recentItems.firstOrNull().isNullOrBlank()) {
-                        Text(text = stringResource(R.string.no_recent_activity), style = MaterialTheme.typography.bodyMedium, color = AppColors.TextPrimary)
+                PrimaryButton(
+                    text = if (isSyncing) {
+                        stringResource(R.string.syncing_progress, totalPending)
                     } else {
-                        recentItems.forEach { label ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(text = stringResource(R.string.last_sync, label), style = MaterialTheme.typography.bodyMedium, color = AppColors.TextPrimary)
-                                StatusChip(
-                                    text = if (isOffline) stringResource(R.string.status_pending) else stringResource(R.string.status_synced),
-                                    style = if (isOffline) StatusChipStyle.Pending else StatusChipStyle.Synced,
-                                )
+                        stringResource(R.string.sync_now)
+                    },
+                    leadingIcon = Icons.Rounded.Sync,
+                    leadingIconRotation = if (isSyncing) rotation else 0f,
+                    onClick = { SyncManager.enqueue(context) },
+                    enabled = !isOffline && hasPending && !isSyncing,
+                    tone = PrimaryButtonTone.Accent,
+                )
+                SecondaryButton(text = stringResource(R.string.view_conflicts), onClick = onViewConflicts)
+
+                Surface(
+                    color = AppColors.CardSurface,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(modifier = Modifier.padding(Dimens.cardPadding)) {
+                        Text(
+                            text = stringResource(R.string.recent_activity),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = AppColors.TextSecondary,
+                        )
+                        if (recentItems.firstOrNull().isNullOrBlank()) {
+                            Text(text = stringResource(R.string.no_recent_activity), style = MaterialTheme.typography.bodyMedium, color = AppColors.TextPrimary)
+                        } else {
+                            recentItems.forEach { label ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(text = stringResource(R.string.last_sync, label), style = MaterialTheme.typography.bodyMedium, color = AppColors.TextPrimary)
+                                    StatusChip(
+                                        text = if (isOffline) stringResource(R.string.status_pending) else stringResource(R.string.status_synced),
+                                        style = if (isOffline) StatusChipStyle.Pending else StatusChipStyle.Synced,
+                                    )
+                                }
                             }
                         }
                     }

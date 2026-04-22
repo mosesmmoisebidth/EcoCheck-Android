@@ -6,17 +6,25 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.material.icons.rounded.Sync
-import androidx.compose.material3.Text
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.windowsizeclass.WindowSizeClass
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -25,7 +33,7 @@ import androidx.navigation.compose.rememberNavController
 import com.moses.inspectionapp.data.AppContainer
 import com.moses.inspectionapp.data.store.DraftStore
 import com.moses.inspectionapp.data.store.PhotoCaptureTarget
-import com.moses.inspectionapp.ui.components.BottomNavBar
+import com.moses.inspectionapp.ui.components.AdaptiveBottomNav
 import com.moses.inspectionapp.ui.components.BottomNavItem
 import com.moses.inspectionapp.ui.screens.home.HomeScreen
 import com.moses.inspectionapp.ui.screens.inspections.InspectionsScreen
@@ -55,9 +63,14 @@ import com.moses.inspectionapp.ui.screens.assessment.AssessmentVisitTypeScreen
 import com.moses.inspectionapp.ui.screens.assessment.AssessmentQuestionsPreviewScreen
 import com.moses.inspectionapp.ui.screens.edit.EditRecordScreen
 import com.moses.inspectionapp.ui.screens.edit.LockedRecordScreen
+import com.moses.inspectionapp.ui.theme.Dimens
 
 @Composable
-fun MainScaffold(modifier: Modifier = Modifier, onLogout: () -> Unit = {}) {
+fun MainScaffold(
+    windowSizeClass: WindowSizeClass,
+    modifier: Modifier = Modifier,
+    onLogout: () -> Unit = {},
+) {
     val repository = AppContainer.repository
     val isOffline by repository.isOffline.collectAsState()
     val lastSyncLabel by repository.lastSyncLabel.collectAsState()
@@ -71,6 +84,7 @@ fun MainScaffold(modifier: Modifier = Modifier, onLogout: () -> Unit = {}) {
     )
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    val isCompactWidth = windowSizeClass.widthSizeClass == WindowWidthSizeClass.Compact
     val assessmentStepRoutes = mapOf(
         1 to MainRoute.AssessmentStart,
         2 to MainRoute.AssessmentVisitType,
@@ -88,51 +102,76 @@ fun MainScaffold(modifier: Modifier = Modifier, onLogout: () -> Unit = {}) {
         }
     }
 
-    androidx.compose.material3.Scaffold(
-        modifier = modifier,
+    val onSelectNavItem: (BottomNavItem) -> Unit = { item ->
+        navController.navigate(item.route) {
+            popUpTo(navController.graph.startDestinationId) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        contentWindowInsets = WindowInsets.safeDrawing,
         bottomBar = {
-            BottomNavBar(
-                items = items,
-                currentRoute = currentRoute,
-                onSelect = { item ->
-                    navController.navigate(item.route) {
-                        popUpTo(navController.graph.startDestinationId) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
-            )
+            if (isCompactWidth) {
+                AdaptiveBottomNav(
+                    windowSizeClass = windowSizeClass,
+                    items = items,
+                    currentRoute = currentRoute,
+                    onSelect = onSelectNavItem,
+                )
+            }
         },
     ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = MainRoute.Home,
-            modifier = Modifier.padding(innerPadding),
-            enterTransition = {
-                slideInHorizontally(
-                    animationSpec = tween(300, easing = FastOutSlowInEasing),
-                    initialOffsetX = { it / 2 },
-                ) + fadeIn(animationSpec = tween(300))
-            },
-            exitTransition = {
-                slideOutHorizontally(
-                    animationSpec = tween(300, easing = FastOutSlowInEasing),
-                    targetOffsetX = { -it / 2 },
-                ) + fadeOut(animationSpec = tween(300))
-            },
-            popEnterTransition = {
-                slideInHorizontally(
-                    animationSpec = tween(300, easing = FastOutSlowInEasing),
-                    initialOffsetX = { -it / 2 },
-                ) + fadeIn(animationSpec = tween(300))
-            },
-            popExitTransition = {
-                slideOutHorizontally(
-                    animationSpec = tween(300, easing = FastOutSlowInEasing),
-                    targetOffsetX = { it / 2 },
-                ) + fadeOut(animationSpec = tween(300))
-            },
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding),
         ) {
+            if (!isCompactWidth) {
+                AdaptiveBottomNav(
+                    windowSizeClass = windowSizeClass,
+                    items = items,
+                    currentRoute = currentRoute,
+                    onSelect = onSelectNavItem,
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .widthIn(max = Dimens.cardMaxWidth + (Dimens.screenPadding * 2f)),
+            ) {
+                NavHost(
+                    navController = navController,
+                    startDestination = MainRoute.Home,
+                    modifier = Modifier.fillMaxSize(),
+                    enterTransition = {
+                    slideInHorizontally(
+                        animationSpec = tween(300, easing = FastOutSlowInEasing),
+                        initialOffsetX = { it / 2 },
+                    ) + fadeIn(animationSpec = tween(300))
+                    },
+                    exitTransition = {
+                    slideOutHorizontally(
+                        animationSpec = tween(300, easing = FastOutSlowInEasing),
+                        targetOffsetX = { -it / 2 },
+                    ) + fadeOut(animationSpec = tween(300))
+                    },
+                    popEnterTransition = {
+                    slideInHorizontally(
+                        animationSpec = tween(300, easing = FastOutSlowInEasing),
+                        initialOffsetX = { -it / 2 },
+                    ) + fadeIn(animationSpec = tween(300))
+                    },
+                    popExitTransition = {
+                    slideOutHorizontally(
+                        animationSpec = tween(300, easing = FastOutSlowInEasing),
+                        targetOffsetX = { it / 2 },
+                    ) + fadeOut(animationSpec = tween(300))
+                    },
+                ) {
             composable(MainRoute.Home) {
                 HomeScreen(
                     isOffline = isOffline,
@@ -360,6 +399,8 @@ fun MainScaffold(modifier: Modifier = Modifier, onLogout: () -> Unit = {}) {
             }
             composable(MainRoute.LockedRecord) { LockedRecordScreen(onBack = { navController.popBackStack() }) }
             composable(MainRoute.StatesDemo) { StatesDemoScreen(onBack = { navController.popBackStack() }) }
+                }
+            }
         }
     }
 }

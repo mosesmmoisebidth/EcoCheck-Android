@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Search
@@ -45,6 +47,7 @@ import com.moses.inspectionapp.data.repository.RoomInspectionRepository
 import com.moses.inspectionapp.data.store.DraftStore
 import com.moses.inspectionapp.ui.components.AppTopBar
 import com.moses.inspectionapp.ui.components.EmptyState
+import com.moses.inspectionapp.ui.components.FacilitySkeletonList
 import com.moses.inspectionapp.ui.components.FacilitySummaryCard
 import com.moses.inspectionapp.ui.components.OfflineBanner
 import com.moses.inspectionapp.ui.components.PrimaryButton
@@ -76,18 +79,24 @@ fun FacilitiesScreen(
     var selectedCell by remember { mutableStateOf<String?>(null) }
     var selectedVillage by remember { mutableStateOf<String?>(null) }
     var didAttemptServerRefresh by remember { mutableStateOf(false) }
+    var isRefreshing by remember { mutableStateOf(false) }
 
     LaunchedEffect(facilities.size, isOffline) {
         if (!isOffline && facilities.isEmpty() && !didAttemptServerRefresh) {
             didAttemptServerRefresh = true
-            val roomRepository = repository as? RoomInspectionRepository
-            if (roomRepository == null) {
-                Log.w("FacilitiesScreen", "Room repository unavailable")
-            } else {
-                withContext(Dispatchers.IO) {
-                    val count = roomRepository.refreshFacilitiesFromServer()
-                    Log.i("FacilitiesScreen", "Facilities refreshed: $count")
+            isRefreshing = true
+            try {
+                val roomRepository = repository as? RoomInspectionRepository
+                if (roomRepository == null) {
+                    Log.w("FacilitiesScreen", "Room repository unavailable")
+                } else {
+                    withContext(Dispatchers.IO) {
+                        val count = roomRepository.refreshFacilitiesFromServer()
+                        Log.i("FacilitiesScreen", "Facilities refreshed: $count")
+                    }
                 }
+            } finally {
+                isRefreshing = false
             }
         }
     }
@@ -154,6 +163,7 @@ fun FacilitiesScreen(
                 village = selectedVillage,
             )
         }
+    val showSkeleton = facilities.isEmpty() && (isRefreshing || !didAttemptServerRefresh)
 
     Column(
         modifier = Modifier
@@ -162,82 +172,123 @@ fun FacilitiesScreen(
     ) {
         AppTopBar(title = stringResource(R.string.facilities_label))
         OfflineBanner(lastSync = lastSyncLabel, isVisible = isOffline)
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .mouseWheelScroll(scrollState)
-                .verticalScroll(scrollState)
-                .padding(horizontal = Dimens.screenPadding, vertical = Dimens.sectionGap),
-            verticalArrangement = Arrangement.spacedBy(Dimens.sectionGap),
+                .padding(horizontal = Dimens.screenPadding),
+            contentAlignment = androidx.compose.ui.Alignment.TopCenter,
         ) {
-            SectionHeader(title = stringResource(R.string.filters))
-            Column(verticalArrangement = Arrangement.spacedBy(Dimens.itemGap)) {
-                StyledTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    label = stringResource(R.string.search_name_tin),
-                    leadingIcon = Icons.Rounded.Search,
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(Dimens.itemGap)) {
-                    FilterDropdown(
-                        modifier = Modifier.weight(1f),
-                        label = stringResource(R.string.filter_cell),
-                        value = selectedCell ?: stringResource(R.string.all_cells),
-                        options = cellOptions,
-                        allLabel = stringResource(R.string.all_cells),
-                        onSelected = {
-                            selectedCell = it
-                            if (it == null) {
-                                selectedVillage = null
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = Dimens.cardMaxWidth)
+                    .mouseWheelScroll(scrollState)
+                    .verticalScroll(scrollState)
+                    .padding(vertical = Dimens.sectionGap),
+                verticalArrangement = Arrangement.spacedBy(Dimens.sectionGap),
+            ) {
+                SectionHeader(title = stringResource(R.string.filters))
+                Column(verticalArrangement = Arrangement.spacedBy(Dimens.itemGap)) {
+                    StyledTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        label = stringResource(R.string.search_name_tin),
+                        leadingIcon = Icons.Rounded.Search,
+                    )
+                    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                        val compactStack = maxWidth <= 360.dp
+                        if (compactStack) {
+                            Column(verticalArrangement = Arrangement.spacedBy(Dimens.itemGap)) {
+                                FilterDropdown(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    label = stringResource(R.string.filter_cell),
+                                    value = selectedCell ?: stringResource(R.string.all_cells),
+                                    options = cellOptions,
+                                    allLabel = stringResource(R.string.all_cells),
+                                    onSelected = {
+                                        selectedCell = it
+                                        if (it == null) {
+                                            selectedVillage = null
+                                        }
+                                    },
+                                )
+                                FilterDropdown(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    label = stringResource(R.string.filter_village),
+                                    value = selectedVillage ?: stringResource(R.string.all_villages),
+                                    options = villageOptions,
+                                    allLabel = stringResource(R.string.all_villages),
+                                    onSelected = {
+                                        selectedVillage = it
+                                    },
+                                )
                             }
-                        },
-                    )
-                    FilterDropdown(
-                        modifier = Modifier.weight(1f),
-                        label = stringResource(R.string.filter_village),
-                        value = selectedVillage ?: stringResource(R.string.all_villages),
-                        options = villageOptions,
-                        allLabel = stringResource(R.string.all_villages),
-                        onSelected = {
-                            selectedVillage = it
-                        },
-                    )
+                        } else {
+                            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.itemGap)) {
+                                FilterDropdown(
+                                    modifier = Modifier.weight(1f),
+                                    label = stringResource(R.string.filter_cell),
+                                    value = selectedCell ?: stringResource(R.string.all_cells),
+                                    options = cellOptions,
+                                    allLabel = stringResource(R.string.all_cells),
+                                    onSelected = {
+                                        selectedCell = it
+                                        if (it == null) {
+                                            selectedVillage = null
+                                        }
+                                    },
+                                )
+                                FilterDropdown(
+                                    modifier = Modifier.weight(1f),
+                                    label = stringResource(R.string.filter_village),
+                                    value = selectedVillage ?: stringResource(R.string.all_villages),
+                                    options = villageOptions,
+                                    allLabel = stringResource(R.string.all_villages),
+                                    onSelected = {
+                                        selectedVillage = it
+                                    },
+                                )
+                            }
+                        }
+                    }
                 }
-            }
 
-            Text(
-                text = stringResource(R.string.facility_results_count, filtered.size),
-                color = AppColors.TextSecondary,
-            )
-
-            if (filtered.isEmpty()) {
-                EmptyState(
-                    title = stringResource(R.string.no_facilities),
-                    message = stringResource(R.string.try_another_or_enroll),
-                    icon = Icons.Rounded.Search,
+                Text(
+                    text = stringResource(R.string.facility_results_count, filtered.size),
+                    color = AppColors.TextSecondary,
                 )
-            } else {
-                filtered.forEach { facility ->
-                    FacilitySummaryCard(
-                        name = facility.name,
-                        tin = facility.tin,
-                        location = "${facility.cell}, ${facility.village}",
-                        onClick = {
-                            DraftStore.selectedFacilityId.value = facility.id
-                            DraftStore.inspectionDraft.value = DraftStore.inspectionDraft.value.copy(
-                                facilityId = facility.id,
-                                facilityName = facility.name,
-                            )
-                            onSelectFacility()
-                        },
-                    )
-                }
-            }
 
-            PrimaryButton(
-                text = stringResource(R.string.enroll_new_facility),
-                onClick = onEnrollNew,
-            )
+                if (showSkeleton) {
+                    FacilitySkeletonList()
+                } else if (filtered.isEmpty()) {
+                    EmptyState(
+                        title = stringResource(R.string.no_facilities),
+                        message = stringResource(R.string.try_another_or_enroll),
+                        icon = Icons.Rounded.Search,
+                    )
+                } else {
+                    filtered.forEach { facility ->
+                        FacilitySummaryCard(
+                            name = facility.name,
+                            tin = facility.tin,
+                            location = "${facility.cell}, ${facility.village}",
+                            onClick = {
+                                DraftStore.selectedFacilityId.value = facility.id
+                                DraftStore.inspectionDraft.value = DraftStore.inspectionDraft.value.copy(
+                                    facilityId = facility.id,
+                                    facilityName = facility.name,
+                                )
+                                onSelectFacility()
+                            },
+                        )
+                    }
+                }
+
+                PrimaryButton(
+                    text = stringResource(R.string.enroll_new_facility),
+                    onClick = onEnrollNew,
+                )
+            }
         }
     }
 }

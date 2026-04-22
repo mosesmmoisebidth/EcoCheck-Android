@@ -15,9 +15,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.moses.inspectionapp.ui.theme.AppColors
+import com.moses.inspectionapp.ui.theme.LocalAppSpacing
+import com.moses.inspectionapp.ui.theme.LocalAppTypography
 
 @Composable
 fun SectionHeader(title: String, trailing: @Composable (() -> Unit)? = null) {
+    val sp = LocalAppSpacing.current
+    val ty = LocalAppTypography.current
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -29,6 +33,7 @@ fun SectionHeader(title: String, trailing: @Composable (() -> Unit)? = null) {
                 style = MaterialTheme.typography.labelMedium.copy(
                     letterSpacing = 1.2.sp,
                     fontWeight = FontWeight.SemiBold,
+                    fontSize = ty.labelSmall,
                 ),
                 color = AppColors.TextSecondary,
             )
@@ -39,7 +44,7 @@ fun SectionHeader(title: String, trailing: @Composable (() -> Unit)? = null) {
         Divider(
             color = AppColors.Divider,
             thickness = 1.dp,
-            modifier = Modifier.padding(top = 6.dp),
+            modifier = Modifier.padding(top = sp.itemSpacing / 2),
         )
     }
 }

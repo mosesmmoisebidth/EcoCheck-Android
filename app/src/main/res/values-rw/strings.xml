@@ -134,10 +134,10 @@
 
     <string name="decision">Icyemezo</string>
     <string name="decision_warning">Kuburira</string>
-    <string name="decision_closure_immediate">Gufunga ako kanya</string>
-    <string name="decision_closure_deadline">Gufunga ku gihe</string>
-    <string name="decision_prosecution">Gusaba gukurikirana</string>
-    <string name="decision_no_action">Nta cyemezo / Byujuje</string>
+    <string name="decision_closure_immediate">Gufunga burundu</string>
+    <string name="decision_closure_deadline">Gufunga by\'agateganyo</string>
+    <string name="decision_prosecution">Ihazabu</string>
+    <string name="decision_no_action">Byujuje ibisabwa</string>
 
     <string name="comments">Ibisobanuro</string>
     <string name="comments_recommendations">Ibisobanuro n Inama</string>
@@ -169,6 +169,9 @@
 
     <string name="inspection_pdf">PDF yisuzuma</string>
     <string name="pdf_ready">PDF yiteguye gusangirwa</string>
+    <string name="download_pdf">Manura PDF</string>
+    <string name="pdf_saved_downloads">PDF yabitswe muri Downloads/EcoCheck</string>
+    <string name="pdf_save_failed">Ntibishobotse kubika PDF muri Downloads</string>
     <string name="done">Birarangiye</string>
 
     <string name="sync_center">Ikigo cyo kohereza</string>

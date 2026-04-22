@@ -28,6 +28,7 @@ import com.moses.inspectionapp.data.sync.SyncManager
 import com.moses.inspectionapp.data.model.Decision
 import com.moses.inspectionapp.data.model.FacilityDraft
 import com.moses.inspectionapp.data.model.InspectionDraft
+import com.moses.inspectionapp.data.model.decisionOptionsInUiOrder
 import com.moses.inspectionapp.data.store.DraftStore
 import com.moses.inspectionapp.ui.components.AppTopBar
 import com.moses.inspectionapp.ui.components.ErrorState
@@ -66,7 +67,7 @@ fun EditRecordScreen(
     val (comments, setComments) = remember { mutableStateOf(inspection?.comments.orEmpty()) }
     val (recommendations, setRecommendations) = remember { mutableStateOf(inspection?.recommendations.orEmpty()) }
     val (selectedFaultIds, setSelectedFaultIds) = remember { mutableStateOf(setOf<String>()) }
-    val (decision, setDecision) = remember { mutableStateOf(inspection?.decision ?: Decision.WARNING) }
+    val (decision, setDecision) = remember { mutableStateOf(inspection?.decision ?: Decision.NO_ACTION) }
     val (adjustmentEnabled, setAdjustmentEnabled) = remember { mutableStateOf(inspection?.adjustmentAmount != 0) }
     val (adjustmentAmount, setAdjustmentAmount) = remember { mutableStateOf(inspection?.adjustmentAmount?.toString() ?: "0") }
     val (adjustmentReason, setAdjustmentReason) = remember { mutableStateOf(inspection?.adjustmentReason.orEmpty()) }
@@ -134,7 +135,7 @@ fun EditRecordScreen(
                     }
                 }
                 SectionHeader(title = stringResource(R.string.decision))
-                Decision.values().forEach { option ->
+                decisionOptionsInUiOrder().forEach { option ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(
                             selected = decision == option,

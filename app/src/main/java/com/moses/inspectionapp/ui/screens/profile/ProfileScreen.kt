@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,9 +46,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.moses.inspectionapp.R
 import com.moses.inspectionapp.data.AppContainer
 import com.moses.inspectionapp.data.remote.AuthRepository
@@ -59,6 +62,7 @@ import com.moses.inspectionapp.ui.components.SectionHeader
 import com.moses.inspectionapp.ui.components.StyledTextField
 import com.moses.inspectionapp.ui.theme.AppColors
 import com.moses.inspectionapp.ui.theme.Dimens
+import com.moses.inspectionapp.ui.theme.LocalAppSpacing
 import com.moses.inspectionapp.ui.util.mouseWheelScroll
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -99,6 +103,7 @@ fun ProfileScreen(onSettings: () -> Unit = {}, onLogout: () -> Unit = {}) {
     val emailUpdatedText = stringResource(R.string.email_updated)
     val passwordMinLengthText = stringResource(R.string.password_min_length)
     val scrollState = rememberScrollState()
+    val sp = LocalAppSpacing.current
 
     LaunchedEffect(user.fullName) {
         val trimmed = user.fullName.trim()
@@ -116,142 +121,152 @@ fun ProfileScreen(onSettings: () -> Unit = {}, onLogout: () -> Unit = {}) {
         emailInput = user.email
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(AppColors.PageBackground)
-            .mouseWheelScroll(scrollState)
-            .verticalScroll(scrollState),
+            .background(AppColors.PageBackground),
+        contentAlignment = Alignment.TopCenter,
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(AppColors.NavyDark)
-                .padding(top = 40.dp, bottom = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .widthIn(max = Dimens.cardMaxWidth)
+                .mouseWheelScroll(scrollState)
+                .verticalScroll(scrollState),
         ) {
-            Surface(
-                color = Color.White,
-                shape = CircleShape,
-                modifier = Modifier.size(72.dp),
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(AppColors.NavyDark)
+                    .padding(top = Dimens.sectionGap * 2f, bottom = Dimens.large),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = user.fullName.firstOrNull()?.uppercase() ?: "?",
-                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                        color = AppColors.SteelBlue,
-                    )
+                Surface(
+                    color = Color.White,
+                    shape = CircleShape,
+                    modifier = Modifier.size(sp.avatarSize),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = user.fullName.firstOrNull()?.uppercase() ?: "?",
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = (sp.avatarSize.value * 0.4f).sp,
+                            ),
+                            color = AppColors.SteelBlue,
+                        )
+                    }
                 }
-            }
-            Text(
-                text = user.fullName,
-                style = MaterialTheme.typography.headlineMedium,
-                color = AppColors.TextOnDark,
-                modifier = Modifier.padding(top = 12.dp),
-            )
-            Surface(
-                color = Color.Transparent,
-                shape = RoundedCornerShape(50.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White),
-                modifier = Modifier.padding(top = 6.dp),
-            ) {
                 Text(
-                    text = user.role,
-                    style = MaterialTheme.typography.labelMedium,
+                    text = user.fullName,
+                    style = MaterialTheme.typography.headlineMedium,
                     color = AppColors.TextOnDark,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                    modifier = Modifier.padding(top = 12.dp),
                 )
-            }
-            Text(
-                text = "${user.sector} | ${user.district}",
-                style = MaterialTheme.typography.labelSmall,
-                color = AppColors.TextOnDarkMuted,
-                modifier = Modifier.padding(top = 6.dp),
-            )
-        }
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(
-                    start = Dimens.screenPadding,
-                    end = Dimens.screenPadding,
-                    top = Dimens.itemGap,
-                    bottom = Dimens.sectionGap,
-                )
-                .navigationBarsPadding(),
-            verticalArrangement = Arrangement.spacedBy(Dimens.sectionGap),
-        ) {
-            Surface(color = AppColors.CardSurface, shape = RoundedCornerShape(12.dp), shadowElevation = 1.dp) {
-                Column(modifier = Modifier.padding(Dimens.cardPadding)) {
-                    InfoRow(icon = Icons.Rounded.Person, label = stringResource(R.string.full_name), value = user.fullName)
-                    InfoRow(icon = Icons.Rounded.Email, label = stringResource(R.string.email), value = user.email)
-                    InfoRow(icon = Icons.Rounded.LocationCity, label = stringResource(R.string.district), value = user.district)
-                    InfoRow(icon = Icons.Rounded.Map, label = stringResource(R.string.sector), value = user.sector)
-                    InfoRow(icon = Icons.Rounded.Badge, label = stringResource(R.string.employee_id), value = user.id)
+                Surface(
+                    color = Color.Transparent,
+                    shape = RoundedCornerShape(50.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White),
+                    modifier = Modifier.padding(top = 6.dp),
+                ) {
+                    Text(
+                        text = user.role,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = AppColors.TextOnDark,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                    )
                 }
+                Text(
+                    text = "${user.sector} | ${user.district}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AppColors.TextOnDarkMuted,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
             }
 
-            SectionHeader(title = stringResource(R.string.profile_details))
-            Surface(color = AppColors.CardSurface, shape = RoundedCornerShape(12.dp), shadowElevation = 1.dp) {
-                Column(modifier = Modifier.padding(Dimens.cardPadding), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    ProfilePhotoRow(
-                        initials = user.fullName.firstOrNull()?.uppercase()?.toString() ?: "?",
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        start = Dimens.screenPadding,
+                        end = Dimens.screenPadding,
+                        top = Dimens.itemGap,
+                        bottom = Dimens.sectionGap,
                     )
-                    StyledTextField(
-                        value = firstName,
-                        onValueChange = { firstName = it },
-                        label = stringResource(R.string.first_name),
-                    )
-                    StyledTextField(
-                        value = lastName,
-                        onValueChange = { lastName = it },
-                        label = stringResource(R.string.last_name),
-                    )
-                    PrimaryButton(
-                        text = stringResource(R.string.save_profile),
-                        onClick = {
-                            if (isSaving) return@PrimaryButton
-                            isSaving = true
-                            saveMessage = null
-                            saveError = null
-                            scope.launch {
-                                val result = authRepository.updateProfile(
-                                    firstName.trim(),
-                                    lastName.trim(),
-                                )
-                                isSaving = false
-                                if (result.isSuccess) {
-                                    saveMessage = profileSavedText
-                                } else {
-                                    saveError = result.exceptionOrNull()?.message
-                                        ?: profileSaveFailedText
+                    .navigationBarsPadding(),
+                verticalArrangement = Arrangement.spacedBy(Dimens.sectionGap),
+            ) {
+                Surface(color = AppColors.CardSurface, shape = RoundedCornerShape(12.dp), shadowElevation = 1.dp) {
+                    Column(modifier = Modifier.padding(Dimens.cardPadding)) {
+                        InfoRow(icon = Icons.Rounded.Person, label = stringResource(R.string.full_name), value = user.fullName)
+                        InfoRow(icon = Icons.Rounded.Email, label = stringResource(R.string.email), value = user.email)
+                        InfoRow(icon = Icons.Rounded.LocationCity, label = stringResource(R.string.district), value = user.district)
+                        InfoRow(icon = Icons.Rounded.Map, label = stringResource(R.string.sector), value = user.sector)
+                        InfoRow(icon = Icons.Rounded.Badge, label = stringResource(R.string.employee_id), value = user.id)
+                    }
+                }
+
+                SectionHeader(title = stringResource(R.string.profile_details))
+                Surface(color = AppColors.CardSurface, shape = RoundedCornerShape(12.dp), shadowElevation = 1.dp) {
+                    Column(modifier = Modifier.padding(Dimens.cardPadding), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        ProfilePhotoRow(
+                            initials = user.fullName.firstOrNull()?.uppercase()?.toString() ?: "?",
+                            avatarSize = sp.avatarSize,
+                        )
+                        StyledTextField(
+                            value = firstName,
+                            onValueChange = { firstName = it },
+                            label = stringResource(R.string.first_name),
+                        )
+                        StyledTextField(
+                            value = lastName,
+                            onValueChange = { lastName = it },
+                            label = stringResource(R.string.last_name),
+                        )
+                        PrimaryButton(
+                            text = stringResource(R.string.save_profile),
+                            onClick = {
+                                if (isSaving) return@PrimaryButton
+                                isSaving = true
+                                saveMessage = null
+                                saveError = null
+                                scope.launch {
+                                    val result = authRepository.updateProfile(
+                                        firstName.trim(),
+                                        lastName.trim(),
+                                    )
+                                    isSaving = false
+                                    if (result.isSuccess) {
+                                        saveMessage = profileSavedText
+                                    } else {
+                                        saveError = result.exceptionOrNull()?.message
+                                            ?: profileSaveFailedText
+                                    }
                                 }
-                            }
-                        },
-                        isLoading = isSaving,
-                        enabled = firstName.isNotBlank() && lastName.isNotBlank() && !isSaving,
-                    )
-                    if (!saveMessage.isNullOrBlank()) {
-                        Text(
-                            text = saveMessage.orEmpty(),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = AppColors.AccentGreen,
+                            },
+                            isLoading = isSaving,
+                            enabled = firstName.isNotBlank() && lastName.isNotBlank() && !isSaving,
                         )
-                    }
-                    if (!saveError.isNullOrBlank()) {
-                        Text(
-                            text = saveError.orEmpty(),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = AppColors.AccentRed,
-                        )
+                        if (!saveMessage.isNullOrBlank()) {
+                            Text(
+                                text = saveMessage.orEmpty(),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = AppColors.AccentGreen,
+                            )
+                        }
+                        if (!saveError.isNullOrBlank()) {
+                            Text(
+                                text = saveError.orEmpty(),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = AppColors.AccentRed,
+                            )
+                        }
                     }
                 }
-            }
 
-            SectionHeader(title = stringResource(R.string.change_email))
-            Surface(color = AppColors.CardSurface, shape = RoundedCornerShape(12.dp), shadowElevation = 1.dp) {
-                Column(modifier = Modifier.padding(Dimens.cardPadding), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SectionHeader(title = stringResource(R.string.change_email))
+                Surface(color = AppColors.CardSurface, shape = RoundedCornerShape(12.dp), shadowElevation = 1.dp) {
+                    Column(modifier = Modifier.padding(Dimens.cardPadding), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     StyledTextField(
                         value = emailInput,
                         onValueChange = { emailInput = it },
@@ -322,12 +337,12 @@ fun ProfileScreen(onSettings: () -> Unit = {}, onLogout: () -> Unit = {}) {
                             color = AppColors.AccentRed,
                         )
                     }
+                    }
                 }
-            }
 
-            SectionHeader(title = stringResource(R.string.change_password))
-            Surface(color = AppColors.CardSurface, shape = RoundedCornerShape(12.dp), shadowElevation = 1.dp) {
-                Column(modifier = Modifier.padding(Dimens.cardPadding), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SectionHeader(title = stringResource(R.string.change_password))
+                Surface(color = AppColors.CardSurface, shape = RoundedCornerShape(12.dp), shadowElevation = 1.dp) {
+                    Column(modifier = Modifier.padding(Dimens.cardPadding), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     StyledTextField(
                         value = currentPassword,
                         onValueChange = { currentPassword = it },
@@ -469,49 +484,50 @@ fun ProfileScreen(onSettings: () -> Unit = {}, onLogout: () -> Unit = {}) {
                             color = AppColors.AccentRed,
                         )
                     }
-                }
-            }
-
-            SectionHeader(title = stringResource(R.string.account))
-            ClickableCard(onClick = onSettings) {
-                Row(
-                    modifier = Modifier.padding(Dimens.cardPadding),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(Dimens.itemGap),
-                ) {
-                    Icon(imageVector = Icons.Rounded.Settings, contentDescription = null, tint = AppColors.SteelBlue)
-                    Text(
-                        text = stringResource(R.string.settings),
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.weight(1f),
-                        color = AppColors.TextPrimary,
-                    )
-                    Icon(imageVector = Icons.Rounded.ChevronRight, contentDescription = null, tint = AppColors.TextSecondary)
-                }
-            }
-            PrimaryButton(
-                text = stringResource(R.string.logout),
-                leadingIcon = Icons.Rounded.Logout,
-                tone = PrimaryButtonTone.Danger,
-                onClick = {
-                    if (isLoggingOut) return@PrimaryButton
-                    isLoggingOut = true
-                    scope.launch {
-                        authRepository.logout()
-                        isLoggingOut = false
-                        onLogout()
                     }
-                },
-                isLoading = isLoggingOut,
-                enabled = !isLoggingOut,
-            )
-            Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                SectionHeader(title = stringResource(R.string.account))
+                ClickableCard(onClick = onSettings) {
+                    Row(
+                        modifier = Modifier.padding(Dimens.cardPadding),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Dimens.itemGap),
+                    ) {
+                        Icon(imageVector = Icons.Rounded.Settings, contentDescription = null, tint = AppColors.SteelBlue)
+                        Text(
+                            text = stringResource(R.string.settings),
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f),
+                            color = AppColors.TextPrimary,
+                        )
+                        Icon(imageVector = Icons.Rounded.ChevronRight, contentDescription = null, tint = AppColors.TextSecondary)
+                    }
+                }
+                PrimaryButton(
+                    text = stringResource(R.string.logout),
+                    leadingIcon = Icons.Rounded.Logout,
+                    tone = PrimaryButtonTone.Danger,
+                    onClick = {
+                        if (isLoggingOut) return@PrimaryButton
+                        isLoggingOut = true
+                        scope.launch {
+                            authRepository.logout()
+                            isLoggingOut = false
+                            onLogout()
+                        }
+                    },
+                    isLoading = isLoggingOut,
+                    enabled = !isLoggingOut,
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
         }
     }
 }
 
 @Composable
-private fun ProfilePhotoRow(initials: String) {
+private fun ProfilePhotoRow(initials: String, avatarSize: Dp) {
     Surface(
         color = AppColors.SteelBlueTint,
         shape = RoundedCornerShape(14.dp),
@@ -528,12 +544,15 @@ private fun ProfilePhotoRow(initials: String) {
             Surface(
                 color = Color.White,
                 shape = CircleShape,
-                modifier = Modifier.size(56.dp),
+                modifier = Modifier.size(avatarSize),
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
                         text = initials,
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = (avatarSize.value * 0.4f).sp,
+                        ),
                         color = AppColors.SteelBlue,
                     )
                 }

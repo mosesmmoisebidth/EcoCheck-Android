@@ -47,6 +47,7 @@ import com.moses.inspectionapp.data.store.DraftStore
 import com.moses.inspectionapp.ui.components.AppFilterChip
 import com.moses.inspectionapp.ui.components.AppTopBar
 import com.moses.inspectionapp.ui.components.EmptyState
+import com.moses.inspectionapp.ui.components.InspectionSkeletonList
 import com.moses.inspectionapp.ui.components.InspectionSummaryCard
 import com.moses.inspectionapp.ui.components.OfflineBanner
 import com.moses.inspectionapp.ui.components.PrimaryButton
@@ -56,6 +57,7 @@ import com.moses.inspectionapp.ui.theme.Dimens
 import com.moses.inspectionapp.ui.util.decisionLabel
 import com.moses.inspectionapp.ui.util.formatDateTime
 import com.moses.inspectionapp.ui.util.mouseWheelScroll
+import kotlinx.coroutines.delay
 
 @Composable
 fun InspectionsScreen(
@@ -83,6 +85,18 @@ fun InspectionsScreen(
     val (selectedFilter, setSelectedFilter) = remember { mutableStateOf(filterAll) }
     var selectedCell by remember { mutableStateOf<String?>(null) }
     var selectedVillage by remember { mutableStateOf<String?>(null) }
+    var showInitialSkeleton by remember { mutableStateOf(true) }
+
+    LaunchedEffect(inspections.size) {
+        if (inspections.isNotEmpty()) {
+            showInitialSkeleton = false
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        delay(900)
+        showInitialSkeleton = false
+    }
 
     val fallbackCells = facilities
         .mapNotNull { it.cell.takeIf { value -> value.isNotBlank() } }
@@ -150,6 +164,7 @@ fun InspectionsScreen(
             village = selectedVillage,
         )
     }
+    val showSkeleton = inspections.isEmpty() && showInitialSkeleton
 
     Column(
         modifier = Modifier
@@ -186,6 +201,7 @@ fun InspectionsScreen(
                         label = filter,
                         isSelected = selectedFilter == filter,
                         onClick = { setSelectedFilter(filter) },
+                        minHeight = 40.dp,
                     )
                 }
             }
@@ -214,7 +230,9 @@ fun InspectionsScreen(
                     },
                 )
             }
-            if (filtered.isEmpty()) {
+            if (showSkeleton) {
+                InspectionSkeletonList()
+            } else if (filtered.isEmpty()) {
                 EmptyState(
                     title = stringResource(R.string.no_inspections),
                     message = stringResource(R.string.create_new_assessment),
@@ -335,7 +353,7 @@ private fun decisionAccentColor(decision: Decision): Color {
         Decision.WARNING -> AppColors.StatusWarning
         Decision.CLOSURE_IMMEDIATE -> AppColors.StatusImmediate
         Decision.CLOSURE_DEADLINE -> AppColors.StatusClosure
-        Decision.PROSECUTION_RECOMMENDED -> AppColors.StatusProsecution
+        Decision.PROSECUTION_RECOMMENDED -> AppColors.AccentGold
         Decision.NO_ACTION -> AppColors.StatusCompliant
     }
 }

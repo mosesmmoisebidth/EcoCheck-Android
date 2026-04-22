@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -41,6 +42,7 @@ import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -87,8 +89,10 @@ import com.moses.inspectionapp.ui.components.StaggeredAnimatedItem
 import com.moses.inspectionapp.ui.theme.AppColors
 import com.moses.inspectionapp.ui.theme.CardShape
 import com.moses.inspectionapp.ui.theme.Dimens
+import com.moses.inspectionapp.ui.util.MARKS_PER_QUESTION
 import com.moses.inspectionapp.ui.util.NotificationHelper
 import com.moses.inspectionapp.ui.util.assessmentStepLabels
+import com.moses.inspectionapp.ui.util.calculateAssessmentScore
 import com.moses.inspectionapp.ui.util.decisionLabel
 import com.moses.inspectionapp.ui.util.formatDateTime
 import com.moses.inspectionapp.ui.util.visitTypeLabel
@@ -113,11 +117,13 @@ fun AssessmentReviewScreen(
     val facility = facilities.firstOrNull { it.id == draft.facilityId }
     val inspectionType = inspectionTypes.firstOrNull { it.id == draft.inspectionTypeId }
     val selectedFaults = faults.filter { draft.selectedFaultIds.contains(it.id) }
+    val questionCount = faults.count { it.active && it.inspectionTypeId == draft.inspectionTypeId }
+    val scoreSummary = calculateAssessmentScore(
+        totalQuestions = questionCount,
+        failedAnswers = selectedFaults.size,
+    )
     val decision = draft.decision ?: Decision.WARNING
-    val subtotalValue = selectedFaults.sumOf { it.standardFine }
-    val subtotal by animateIntAsState(targetValue = subtotalValue, label = "reviewSubtotal")
-    val totalFineTarget = subtotalValue + draft.adjustmentAmount
-    val totalFine by animateIntAsState(targetValue = totalFineTarget, label = "reviewTotal")
+    val totalCharge by animateIntAsState(targetValue = draft.adjustmentAmount, label = "reviewTotalCharge")
     val steps = assessmentStepLabels()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -150,9 +156,12 @@ fun AssessmentReviewScreen(
             LazyColumn(
                 modifier = Modifier
                     .weight(1f)
+                    .fillMaxWidth()
+                    .widthIn(max = Dimens.cardMaxWidth)
+                    .align(Alignment.CenterHorizontally)
                     .padding(horizontal = Dimens.screenPadding, vertical = Dimens.sectionGap),
                 verticalArrangement = Arrangement.spacedBy(Dimens.itemGap),
-                contentPadding = PaddingValues(bottom = 170.dp),
+                contentPadding = PaddingValues(bottom = 184.dp),
             ) {
                 item {
                     StepProgressBar(
@@ -284,7 +293,7 @@ fun AssessmentReviewScreen(
                                         selectedFaults.forEachIndexed { index, fault ->
                                             FaultRow(
                                                 name = fault.name,
-                                                amount = fault.standardFine,
+                                                markValue = 0,
                                             )
                                             if (index != selectedFaults.lastIndex) {
                                                 DividerLine()
@@ -305,14 +314,14 @@ fun AssessmentReviewScreen(
                                             verticalAlignment = Alignment.CenterVertically,
                                         ) {
                                             Text(
-                                                text = stringResource(R.string.subtotal),
+                                                text = "Score",
                                                 style = MaterialTheme.typography.bodyMedium.copy(
                                                     fontWeight = FontWeight.SemiBold,
                                                 ),
                                                 color = AppColors.SteelBlue,
                                             )
                                             Text(
-                                                text = stringResource(R.string.rwf_amount, subtotal),
+                                                text = "${scoreSummary.scoreOutOf100}/100",
                                                 style = MaterialTheme.typography.bodyMedium.copy(
                                                     fontWeight = FontWeight.Bold,
                                                 ),
@@ -378,16 +387,16 @@ fun AssessmentReviewScreen(
                 item {
                     StaggeredAnimatedItem(index = 5) {
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            SectionLabel(text = "Financial Summary")
+                            SectionLabel(text = "Scoring & Charge")
                             ReviewCard {
                                 CardHeader(
-                                    title = "Financial Summary",
+                                    title = "Scoring & Charge",
                                     icon = Icons.Rounded.Payments,
                                 )
                                 DividerLine()
                                 LabelValueRow(
-                                    label = stringResource(R.string.subtotal),
-                                    value = stringResource(R.string.rwf_amount, subtotal),
+                                    label = "Score",
+                                    value = "${scoreSummary.scoreOutOf100}/100 (${scoreSummary.rawScore}/${scoreSummary.rawMax})",
                                 )
                                 DividerLine()
                                 val adjustmentColor = when {
@@ -396,7 +405,7 @@ fun AssessmentReviewScreen(
                                     else -> AppColors.TextPrimary
                                 }
                                 LabelValueRow(
-                                    label = stringResource(R.string.adjustment),
+                                    label = "Charge Amount",
                                     value = stringResource(R.string.rwf_amount, draft.adjustmentAmount),
                                     valueColor = adjustmentColor,
                                 )
@@ -414,14 +423,14 @@ fun AssessmentReviewScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
                                         Text(
-                                            text = stringResource(R.string.total_fine),
+                                            text = "Total Charge",
                                             style = MaterialTheme.typography.bodyLarge.copy(
                                                 fontWeight = FontWeight.SemiBold,
                                             ),
                                             color = AppColors.TextPrimary,
                                         )
                                         Text(
-                                            text = stringResource(R.string.rwf_amount, totalFine),
+                                            text = stringResource(R.string.rwf_amount, totalCharge),
                                             style = MaterialTheme.typography.headlineMedium.copy(
                                                 fontWeight = FontWeight.Bold,
                                             ),
@@ -568,64 +577,104 @@ fun AssessmentReviewScreen(
             shadowElevation = 8.dp,
             modifier = Modifier.align(Alignment.BottomCenter),
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = Dimens.screenPadding, vertical = Dimens.medium),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center,
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .widthIn(max = Dimens.cardMaxWidth)
+                        .padding(horizontal = Dimens.screenPadding, vertical = Dimens.medium),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Sync,
-                        contentDescription = null,
-                        tint = AppColors.TextSecondary,
-                        modifier = Modifier.size(14.dp),
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = stringResource(R.string.submit_offline_hint),
-                        style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic),
-                        color = AppColors.TextSecondary,
-                        textAlign = TextAlign.Center,
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Sync,
+                            contentDescription = null,
+                            tint = AppColors.TextSecondary,
+                            modifier = Modifier.size(14.dp),
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = stringResource(R.string.submit_offline_hint),
+                            style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic),
+                            color = AppColors.TextSecondary,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                    PrimaryButton(
+                        text = stringResource(R.string.submit_inspection),
+                        leadingIcon = Icons.Rounded.Send,
+                        onClick = {
+                            if (isSubmitting) return@PrimaryButton
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            isSubmitting = true
+                            errorMessage = null
+                            scope.launch {
+                                val inspectionId = runCatching {
+                                    withContext(Dispatchers.IO) {
+                                        repository.saveInspection(draft)
+                                    }
+                                }.onFailure { error ->
+                                    errorMessage = error.message ?: context.getString(R.string.save_failed)
+                                }.getOrNull()
+                                if (inspectionId != null) {
+                                    DraftStore.selectedInspectionId.value = inspectionId
+                                    NotificationHelper.notifyInspectionSubmitted(
+                                        context = context,
+                                        facilityName = facilityName,
+                                        isOffline = isOffline,
+                                    )
+                                    if (!isOffline) {
+                                        SyncManager.enqueue(context)
+                                    }
+                                    showSheet = true
+                                }
+                                isSubmitting = false
+                            }
+                        },
+                        isLoading = isSubmitting,
                     )
                 }
-                PrimaryButton(
-                    text = stringResource(R.string.submit_inspection),
-                    leadingIcon = Icons.Rounded.Send,
-                    onClick = {
-                        if (isSubmitting) return@PrimaryButton
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        isSubmitting = true
-                        errorMessage = null
-                        scope.launch {
-                            val inspectionId = runCatching {
-                                withContext(Dispatchers.IO) {
-                                    repository.saveInspection(draft)
-                                }
-                            }.onFailure { error ->
-                                errorMessage = error.message ?: context.getString(R.string.save_failed)
-                            }.getOrNull()
-                            if (inspectionId != null) {
-                                DraftStore.selectedInspectionId.value = inspectionId
-                                NotificationHelper.notifyInspectionSubmitted(
-                                    context = context,
-                                    facilityName = facilityName,
-                                    isOffline = isOffline,
-                                )
-                                if (!isOffline) {
-                                    SyncManager.enqueue(context)
-                                }
-                                showSheet = true
-                            }
-                            isSubmitting = false
-                        }
-                    },
-                    isLoading = isSubmitting,
-                )
+            }
+        }
+
+        if (isSubmitting) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(AppColors.NavyDark.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Surface(
+                    color = AppColors.CardSurface,
+                    shape = RoundedCornerShape(16.dp),
+                    shadowElevation = 6.dp,
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        CircularProgressIndicator(
+                            color = AppColors.SteelBlue,
+                            strokeWidth = 3.dp,
+                            modifier = Modifier.size(28.dp),
+                        )
+                        Text(
+                            text = stringResource(R.string.submit_inspection),
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.SemiBold,
+                            ),
+                            color = AppColors.TextPrimary,
+                        )
+                    }
+                }
             }
         }
     }
@@ -856,7 +905,7 @@ private fun DividerLine(stronger: Boolean = false) {
 }
 
 @Composable
-private fun FaultRow(name: String, amount: Int) {
+private fun FaultRow(name: String, markValue: Int) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -875,7 +924,7 @@ private fun FaultRow(name: String, amount: Int) {
             modifier = Modifier.weight(1f),
         )
         Text(
-            text = stringResource(R.string.rwf_amount, amount),
+            text = "$markValue/$MARKS_PER_QUESTION marks",
             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
             color = AppColors.AccentRed,
         )
@@ -1027,7 +1076,7 @@ private fun decisionBadgeConfig(decision: Decision): DecisionBadgeConfig {
         Decision.WARNING -> DecisionBadgeConfig(AppColors.StatusWarning, AppColors.StatusWarningBg, Icons.Rounded.Warning)
         Decision.CLOSURE_IMMEDIATE -> DecisionBadgeConfig(AppColors.StatusImmediate, AppColors.StatusImmediateBg, Icons.Rounded.Block)
         Decision.CLOSURE_DEADLINE -> DecisionBadgeConfig(AppColors.StatusClosure, AppColors.StatusClosureBg, Icons.Rounded.Schedule)
-        Decision.PROSECUTION_RECOMMENDED -> DecisionBadgeConfig(AppColors.StatusProsecution, AppColors.StatusProsecutionBg, Icons.Rounded.Gavel)
+        Decision.PROSECUTION_RECOMMENDED -> DecisionBadgeConfig(AppColors.AccentGold, AppColors.StatusWarningBg, Icons.Rounded.Payments)
         Decision.NO_ACTION -> DecisionBadgeConfig(AppColors.StatusCompliant, AppColors.StatusCompliantBg, Icons.Rounded.CheckCircle)
     }
 }
@@ -1088,9 +1137,9 @@ private fun decisionCardConfig(decision: Decision): DecisionCardConfig {
             description = stringResource(R.string.decision_closure_deadline_desc),
         )
         Decision.PROSECUTION_RECOMMENDED -> DecisionCardConfig(
-            color = AppColors.StatusProsecution,
-            background = AppColors.StatusProsecutionBg,
-            icon = Icons.Rounded.Gavel,
+            color = AppColors.AccentGold,
+            background = AppColors.StatusWarningBg,
+            icon = Icons.Rounded.Payments,
             description = stringResource(R.string.decision_prosecution_desc),
         )
         Decision.NO_ACTION -> DecisionCardConfig(

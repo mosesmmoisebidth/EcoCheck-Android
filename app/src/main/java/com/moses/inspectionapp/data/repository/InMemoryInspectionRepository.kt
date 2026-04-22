@@ -21,6 +21,7 @@ class InMemoryInspectionRepository : InspectionRepository {
     private val inspectionFlow = MutableStateFlow<List<Inspection>>(SampleData.inspections)
     private val faultFlow = MutableStateFlow<List<Fault>>(SampleData.faults)
     private val typeFlow = MutableStateFlow<List<InspectionType>>(SampleData.inspectionTypes)
+    private val customMembersFlow = MutableStateFlow<List<String>>(emptyList())
     private val pendingFlow = MutableStateFlow<PendingCounts>(SampleData.pending)
     private val statsFlow = MutableStateFlow<Stats>(SampleData.stats)
     private val offlineFlow = MutableStateFlow(false)
@@ -31,6 +32,7 @@ class InMemoryInspectionRepository : InspectionRepository {
     override val inspections: StateFlow<List<Inspection>> = inspectionFlow
     override val faults: StateFlow<List<Fault>> = faultFlow
     override val inspectionTypes: StateFlow<List<InspectionType>> = typeFlow
+    override val customTeamMembers: StateFlow<List<String>> = customMembersFlow
     override val pendingCounts: StateFlow<PendingCounts> = pendingFlow
     override val stats: StateFlow<Stats> = statsFlow
     override val isOffline: StateFlow<Boolean> = offlineFlow
@@ -90,6 +92,20 @@ class InMemoryInspectionRepository : InspectionRepository {
             }
         }
         refreshStats()
+    }
+
+    override suspend fun addCustomTeamMember(name: String) {
+        val normalized = name.trim().split(Regex("\\s+")).filter { it.isNotBlank() }.joinToString(" ")
+        if (normalized.isBlank()) return
+        if (customMembersFlow.value.none { it.equals(normalized, ignoreCase = true) }) {
+            customMembersFlow.value = customMembersFlow.value + normalized
+        }
+    }
+
+    override suspend fun removeCustomTeamMember(name: String) {
+        val normalized = name.trim().split(Regex("\\s+")).filter { it.isNotBlank() }.joinToString(" ")
+        if (normalized.isBlank()) return
+        customMembersFlow.value = customMembersFlow.value.filterNot { it.equals(normalized, ignoreCase = true) }
     }
 
     override suspend fun saveInspection(draft: InspectionDraft): String {

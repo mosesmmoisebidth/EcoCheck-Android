@@ -2,25 +2,30 @@ package com.moses.inspectionapp.ui.screens.assessment
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Gavel
+import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.moses.inspectionapp.R
 import com.moses.inspectionapp.data.model.Decision
+import com.moses.inspectionapp.data.model.decisionOptionsInUiOrder
 import com.moses.inspectionapp.data.store.DraftStore
 import com.moses.inspectionapp.ui.components.AppTopBar
 import com.moses.inspectionapp.ui.components.OfflineBanner
@@ -43,7 +48,7 @@ fun AssessmentDecisionScreen(
     onBack: () -> Unit,
     onStepClick: (Int) -> Unit = {},
 ) {
-    val options = Decision.values().toList()
+    val options = decisionOptionsInUiOrder()
     val draft = DraftStore.inspectionDraft.collectAsState().value
     val (selected, setSelected) = remember { mutableStateOf(draft.decision ?: options.first()) }
     val scrollState = rememberScrollState()
@@ -56,47 +61,55 @@ fun AssessmentDecisionScreen(
     ) {
         AppTopBar(title = stringResource(R.string.decision), onBack = onBack)
         OfflineBanner(lastSync = lastSyncLabel, isVisible = isOffline)
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .mouseWheelScroll(scrollState)
-                .verticalScroll(scrollState)
-                .padding(horizontal = Dimens.screenPadding, vertical = Dimens.sectionGap),
-            verticalArrangement = Arrangement.spacedBy(Dimens.itemGap),
+                .padding(horizontal = Dimens.screenPadding),
+            contentAlignment = Alignment.TopCenter,
         ) {
-            StepProgressBar(
-                steps = steps,
-                currentStep = 6,
-                onStepClick = onStepClick,
-            )
-            StepHeaderCard(
-                title = stringResource(R.string.decision),
-                subtitle = stringResource(R.string.step_decision_subtitle),
-            )
-            options.forEach { option ->
-                val isSelected = selected == option
-                val config = decisionConfig(option)
-                SelectionCard(
-                    title = decisionLabel(option),
-                    description = config.description,
-                    icon = config.icon,
-                    isSelected = isSelected,
-                    accentColor = config.accent,
-                    accentBgColor = config.accentBg,
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = Dimens.cardMaxWidth)
+                    .mouseWheelScroll(scrollState)
+                    .verticalScroll(scrollState)
+                    .padding(vertical = Dimens.sectionGap),
+                verticalArrangement = Arrangement.spacedBy(Dimens.itemGap),
+            ) {
+                StepProgressBar(
+                    steps = steps,
+                    currentStep = 6,
+                    onStepClick = onStepClick,
+                )
+                StepHeaderCard(
+                    title = stringResource(R.string.decision),
+                    subtitle = stringResource(R.string.step_decision_subtitle),
+                )
+                options.forEach { option ->
+                    val isSelected = selected == option
+                    val config = decisionConfig(option)
+                    SelectionCard(
+                        title = decisionLabel(option),
+                        description = config.description,
+                        icon = config.icon,
+                        isSelected = isSelected,
+                        accentColor = config.accent,
+                        accentBgColor = config.accentBg,
+                        onClick = {
+                            setSelected(option)
+                            DraftStore.inspectionDraft.value = DraftStore.inspectionDraft.value.copy(decision = option)
+                        },
+                    )
+                }
+                PrimaryButton(
+                    text = stringResource(R.string.next),
                     onClick = {
-                        setSelected(option)
-                        DraftStore.inspectionDraft.value = DraftStore.inspectionDraft.value.copy(decision = option)
+                        DraftStore.inspectionDraft.value = DraftStore.inspectionDraft.value.copy(decision = selected)
+                        onNext()
                     },
                 )
+                SecondaryButton(text = stringResource(R.string.back), onClick = onBack)
             }
-            PrimaryButton(
-                text = stringResource(R.string.next),
-                onClick = {
-                    DraftStore.inspectionDraft.value = DraftStore.inspectionDraft.value.copy(decision = selected)
-                    onNext()
-                },
-            )
-            SecondaryButton(text = stringResource(R.string.back), onClick = onBack)
         }
     }
 }
@@ -132,7 +145,7 @@ private fun decisionConfig(decision: Decision): DecisionUiConfig {
         Decision.PROSECUTION_RECOMMENDED -> DecisionUiConfig(
             accent = AppColors.StatusProsecution,
             accentBg = AppColors.StatusProsecutionBg,
-            icon = Icons.Rounded.Gavel,
+            icon = Icons.Rounded.Payments,
             description = stringResource(R.string.decision_prosecution_desc),
         )
         Decision.NO_ACTION -> DecisionUiConfig(

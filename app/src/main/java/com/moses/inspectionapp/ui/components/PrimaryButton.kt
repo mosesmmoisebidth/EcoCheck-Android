@@ -29,6 +29,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.moses.inspectionapp.ui.theme.AppColors
 import com.moses.inspectionapp.ui.theme.ButtonShape
+import com.moses.inspectionapp.ui.theme.LocalAppSpacing
+import com.moses.inspectionapp.ui.theme.LocalAppTypography
 
 enum class PrimaryButtonTone {
     Primary,
@@ -47,6 +49,8 @@ fun PrimaryButton(
     tone: PrimaryButtonTone = PrimaryButtonTone.Primary,
     modifier: Modifier = Modifier,
 ) {
+    val sp = LocalAppSpacing.current
+    val ty = LocalAppTypography.current
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val baseColor = when (tone) {
@@ -82,24 +86,25 @@ fun PrimaryButton(
         elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp, pressedElevation = 0.dp),
         modifier = modifier
             .fillMaxWidth()
-            .height(52.dp),
+            .height(sp.buttonHeight),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(sp.itemSpacing / 1.5f),
         ) {
             if (leadingIcon != null) {
                 Icon(
                     imageVector = leadingIcon,
                     contentDescription = null,
                     tint = Color.White,
-                    modifier = Modifier.size(18.dp).graphicsLayer(rotationZ = leadingIconRotation),
+                    modifier = Modifier.size(sp.iconSize * 0.75f).graphicsLayer(rotationZ = leadingIconRotation),
                 )
             }
             Text(
                 text = text,
                 style = MaterialTheme.typography.bodyLarge.copy(
                     fontWeight = FontWeight.SemiBold,
+                    fontSize = ty.bodyLarge,
                     letterSpacing = 0.3.sp,
                 ),
                 color = Color.White,
@@ -109,8 +114,8 @@ fun PrimaryButton(
                     color = Color.White,
                     strokeWidth = 2.dp,
                     modifier = Modifier
-                        .padding(start = 6.dp)
-                        .size(18.dp),
+                        .padding(start = sp.itemSpacing / 2)
+                        .size(sp.iconSize * 0.75f),
                 )
             }
         }

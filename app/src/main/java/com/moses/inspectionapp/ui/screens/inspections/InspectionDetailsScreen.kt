@@ -754,10 +754,10 @@ private fun decisionCardConfig(decision: Decision): DecisionCardConfig {
             description = "Facility has a deadline to comply",
         )
         Decision.PROSECUTION_RECOMMENDED -> DecisionCardConfig(
-            color = AppColors.StatusProsecution,
-            background = AppColors.StatusProsecutionBg,
-            icon = Icons.Rounded.Gavel,
-            description = "Case referred for prosecution",
+            color = AppColors.AccentGold,
+            background = AppColors.StatusWarningBg,
+            icon = Icons.Rounded.Payments,
+            description = "Monetary fine issued",
         )
         Decision.NO_ACTION -> DecisionCardConfig(
             color = AppColors.StatusCompliant,

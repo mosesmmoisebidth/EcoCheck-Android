@@ -25,6 +25,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -64,12 +66,15 @@ import com.moses.inspectionapp.data.store.DraftStore
 import com.moses.inspectionapp.ui.components.AppTopBar
 import com.moses.inspectionapp.ui.components.EmptyState
 import com.moses.inspectionapp.ui.components.OfflineBanner
+import com.moses.inspectionapp.ui.components.PrimaryButton
 import com.moses.inspectionapp.ui.components.SecondaryButton
 import com.moses.inspectionapp.ui.components.StepProgressBar
 import com.moses.inspectionapp.ui.components.StaggeredAnimatedItem
 import com.moses.inspectionapp.ui.theme.AppColors
 import com.moses.inspectionapp.ui.theme.Dimens
+import com.moses.inspectionapp.ui.util.MARKS_PER_QUESTION
 import com.moses.inspectionapp.ui.util.assessmentStepLabels
+import com.moses.inspectionapp.ui.util.calculateAssessmentScore
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -88,19 +93,32 @@ fun AssessmentChecklistScreen(
     val selected = remember { mutableStateOf(draft.selectedFaultIds) }
     val answered = remember { mutableStateOf(draft.answeredFaultIds + draft.selectedFaultIds) }
     val currentIndex = remember { mutableStateOf(0) }
+    val hasInitializedFromDraft = remember(draft.inspectionTypeId) { mutableStateOf(false) }
     val steps = assessmentStepLabels()
     val typeFaults = faults.filter { it.active && it.inspectionTypeId == draft.inspectionTypeId }
-    val subtotalTarget = faults.filter { selected.value.contains(it.id) }.sumOf { it.standardFine }
-    val subtotal by animateIntAsState(targetValue = subtotalTarget, label = "subtotal")
-    val faultCount by animateIntAsState(targetValue = selected.value.size, label = "faultCount")
+    val failedCount by animateIntAsState(targetValue = selected.value.size, label = "failedCount")
+    val scoreSummary = calculateAssessmentScore(
+        totalQuestions = typeFaults.size,
+        failedAnswers = failedCount,
+    )
+    val rawScore by animateIntAsState(targetValue = scoreSummary.rawScore, label = "rawScore")
+    val scoreOutOf100 by animateIntAsState(targetValue = scoreSummary.scoreOutOf100, label = "scoreOutOf100")
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
     val isAdvancing = remember { mutableStateOf(false) }
 
-    LaunchedEffect(draft.inspectionTypeId) {
-        currentIndex.value = 0
+    LaunchedEffect(draft.inspectionTypeId, typeFaults) {
         selected.value = draft.selectedFaultIds
         answered.value = draft.answeredFaultIds + draft.selectedFaultIds
+        if (typeFaults.isEmpty()) {
+            return@LaunchedEffect
+        }
+        if (!hasInitializedFromDraft.value) {
+            val lastAnsweredIndex = typeFaults.indexOfLast { answered.value.contains(it.id) }
+            currentIndex.value = (if (lastAnsweredIndex >= 0) lastAnsweredIndex else 0)
+                .coerceIn(0, typeFaults.lastIndex)
+            hasInitializedFromDraft.value = true
+        }
     }
 
     Box(
@@ -114,8 +132,12 @@ fun AssessmentChecklistScreen(
             LazyColumn(
                 modifier = Modifier
                     .weight(1f)
+                    .fillMaxWidth()
+                    .widthIn(max = Dimens.cardMaxWidth)
+                    .align(Alignment.CenterHorizontally)
                     .padding(horizontal = Dimens.screenPadding, vertical = Dimens.sectionGap),
                 verticalArrangement = Arrangement.spacedBy(Dimens.itemGap),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 88.dp),
             ) {
                 item {
                     StepProgressBar(
@@ -134,6 +156,9 @@ fun AssessmentChecklistScreen(
                         )
                     }
                 } else {
+                    item {
+                        Spacer(modifier = Modifier.height(Dimens.itemGap))
+                    }
                     item {
                         StaggeredAnimatedItem(index = 0) {
                             AnimatedContent(
@@ -225,7 +250,7 @@ fun AssessmentChecklistScreen(
                                                         modifier = Modifier.size(16.dp),
                                                     )
                                                     Text(
-                                                        text = "Selecting No will add a fault and apply the standard fine",
+                                                        text = "Selecting No records non-compliance and gives 0 marks.",
                                                         style = MaterialTheme.typography.labelSmall,
                                                         color = AppColors.TextSecondary,
                                                     )
@@ -235,7 +260,7 @@ fun AssessmentChecklistScreen(
                                             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                                 AnswerChoiceCard(
                                                     title = stringResource(R.string.answer_yes),
-                                                    subtitle = "No fault - compliant",
+                                                    subtitle = "Compliant - $MARKS_PER_QUESTION marks",
                                                     selected = isYesSelected,
                                                     accent = AppColors.AccentGreen,
                                                     accentBg = AppColors.AccentGreenBg,
@@ -263,7 +288,7 @@ fun AssessmentChecklistScreen(
                                                 )
                                                 AnswerChoiceCard(
                                                     title = stringResource(R.string.answer_no),
-                                                    subtitle = "Fine: ${stringResource(R.string.rwf_amount, currentFault.standardFine)} will be applied",
+                                                    subtitle = "Non-compliant - 0 marks",
                                                     selected = isNoSelected,
                                                     accent = AppColors.AccentRed,
                                                     accentBg = AppColors.AccentRedBg,
@@ -307,12 +332,28 @@ fun AssessmentChecklistScreen(
                                                                 modifier = Modifier.size(14.dp),
                                                             )
                                                             Text(
-                                                                text = "${stringResource(R.string.rwf_amount, currentFault.standardFine)} fault added",
+                                                                text = "0 marks recorded",
                                                                 style = MaterialTheme.typography.labelSmall,
                                                                 color = AppColors.AccentRed,
                                                             )
                                                         }
                                                     }
+                                                }
+                                                AnimatedVisibility(visible = hasAnswered) {
+                                                    PrimaryButton(
+                                                        text = if (currentIndex.value < typeFaults.lastIndex) {
+                                                            stringResource(R.string.next)
+                                                        } else {
+                                                            stringResource(R.string.continue_label)
+                                                        },
+                                                        onClick = {
+                                                            if (currentIndex.value < typeFaults.lastIndex) {
+                                                                currentIndex.value += 1
+                                                            } else {
+                                                                onNext()
+                                                            }
+                                                        },
+                                                    )
                                                 }
                                             }
                                         }
@@ -324,7 +365,13 @@ fun AssessmentChecklistScreen(
 
                     item {
                         val canGoPrev = currentIndex.value > 0
+                        val isLastQuestion = currentIndex.value == typeFaults.lastIndex
+                        val currentFaultId = typeFaults.getOrNull(currentIndex.value)?.id
+                        val canContinueToReview = isLastQuestion &&
+                            currentFaultId != null &&
+                            answered.value.contains(currentFaultId)
                         val canGoNext = currentIndex.value < typeFaults.lastIndex
+                        val canAdvance = canGoNext || canContinueToReview
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -350,16 +397,21 @@ fun AssessmentChecklistScreen(
                                 color = AppColors.TextSecondary,
                             )
                             Surface(
-                                color = AppColors.SteelBlueTint.copy(alpha = if (canGoNext) 1f else 0.4f),
+                                color = AppColors.SteelBlueTint.copy(alpha = if (canAdvance) 1f else 0.4f),
                                 shape = CircleShape,
                                 modifier = Modifier.size(40.dp),
-                                onClick = { if (canGoNext) currentIndex.value += 1 },
+                                onClick = {
+                                    when {
+                                        canGoNext -> currentIndex.value += 1
+                                        canContinueToReview -> onNext()
+                                    }
+                                },
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         imageVector = Icons.Rounded.KeyboardArrowRight,
                                         contentDescription = null,
-                                        tint = AppColors.SteelBlue.copy(alpha = if (canGoNext) 1f else 0.4f),
+                                        tint = AppColors.SteelBlue.copy(alpha = if (canAdvance) 1f else 0.4f),
                                     )
                                 }
                             }
@@ -371,6 +423,8 @@ fun AssessmentChecklistScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .widthIn(max = Dimens.cardMaxWidth)
+                    .align(Alignment.CenterHorizontally)
                     .padding(horizontal = Dimens.screenPadding, vertical = Dimens.smallGap),
             ) {
                 SecondaryButton(text = stringResource(R.string.back), onClick = onBack)
@@ -383,47 +437,53 @@ fun AssessmentChecklistScreen(
             shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
             modifier = Modifier.align(Alignment.BottomCenter),
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = Dimens.screenPadding, vertical = Dimens.medium),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center,
             ) {
-                Column(horizontalAlignment = Alignment.Start) {
-                    Text(
-                        text = "SUBTOTAL",
-                        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.2.sp),
-                        color = AppColors.TextOnDarkMuted,
-                    )
-                    Text(
-                        text = stringResource(R.string.rwf_amount, subtotal),
-                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                        color = Color.White,
-                    )
-                }
-                Box(
+                Row(
                     modifier = Modifier
-                        .height(32.dp)
-                        .width(1.dp)
-                        .background(Color.White.copy(alpha = 0.2f)),
-                )
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = "FAULTS",
-                        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.2.sp),
-                        color = AppColors.TextOnDarkMuted,
+                        .fillMaxWidth()
+                        .widthIn(max = Dimens.cardMaxWidth)
+                        .padding(horizontal = Dimens.screenPadding, vertical = Dimens.medium),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(horizontalAlignment = Alignment.Start) {
+                        Text(
+                            text = "SCORE",
+                            style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.2.sp),
+                            color = AppColors.TextOnDarkMuted,
+                        )
+                        Text(
+                            text = "$scoreOutOf100/100",
+                            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                            color = Color.White,
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .height(32.dp)
+                            .width(1.dp)
+                            .background(Color.White.copy(alpha = 0.2f)),
                     )
-                    Text(
-                        text = faultCount.toString(),
-                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                        color = Color.White,
-                    )
-                    Text(
-                        text = "selected",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = AppColors.TextOnDarkMuted,
-                    )
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            text = "RAW",
+                            style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.2.sp),
+                            color = AppColors.TextOnDarkMuted,
+                        )
+                        Text(
+                            text = "$rawScore/${scoreSummary.rawMax}",
+                            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                            color = Color.White,
+                        )
+                        Text(
+                            text = "${scoreSummary.failedAnswers} non-compliant",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = AppColors.TextOnDarkMuted,
+                        )
+                    }
                 }
             }
         }
@@ -468,7 +528,7 @@ private fun AnswerChoiceCard(
         shadowElevation = 1.dp,
         modifier = Modifier
             .fillMaxWidth()
-            .height(72.dp)
+            .heightIn(min = 72.dp)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
