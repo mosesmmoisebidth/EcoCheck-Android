@@ -43,6 +43,8 @@ import com.moses.inspectionapp.data.location.LocationCatalogStore
 import com.moses.inspectionapp.data.model.Decision
 import com.moses.inspectionapp.data.model.Facility
 import com.moses.inspectionapp.data.model.Inspection
+import com.moses.inspectionapp.data.model.UserRoleType
+import com.moses.inspectionapp.data.model.parseUserRole
 import com.moses.inspectionapp.data.store.DraftStore
 import com.moses.inspectionapp.ui.components.AppFilterChip
 import com.moses.inspectionapp.ui.components.AppTopBar
@@ -83,6 +85,10 @@ fun InspectionsScreen(
     val filterToday = stringResource(R.string.filter_today)
     val filterWeek = stringResource(R.string.filter_week)
     val (selectedFilter, setSelectedFilter) = remember { mutableStateOf(filterAll) }
+    val roleType = parseUserRole(user.role)
+    val reportPrefill = DraftStore.reportFiltersPrefill.collectAsState().value
+    var selectedDistrict by remember { mutableStateOf<String?>(null) }
+    var selectedSector by remember { mutableStateOf<String?>(null) }
     var selectedCell by remember { mutableStateOf<String?>(null) }
     var selectedVillage by remember { mutableStateOf<String?>(null) }
     var showInitialSkeleton by remember { mutableStateOf(true) }
@@ -98,70 +104,238 @@ fun InspectionsScreen(
         showInitialSkeleton = false
     }
 
-    val fallbackCells = facilities
-        .mapNotNull { it.cell.takeIf { value -> value.isNotBlank() } }
-        .distinct()
-        .sorted()
-    val sectorMatch = catalog?.sectors?.firstOrNull {
-        it.sectorName.equals(user.sector, ignoreCase = true)
-    }
-    val scopedCells = when {
-        catalog != null && sectorMatch != null -> catalog.cellsForSector(sectorMatch.sectorId)
-        else -> emptyList()
-    }
-    val cellOptions = scopedCells
-        .map { it.cellName }
-        .distinct()
-        .sorted()
-        .ifEmpty { fallbackCells }
-    val selectedCellItem = scopedCells.firstOrNull {
-        it.cellName.equals(selectedCell, ignoreCase = true)
-    }
-    val villageOptions = when {
-        catalog != null && selectedCellItem != null ->
-            catalog.villagesForCell(selectedCellItem.cellId)
-                .map { it.villageName }
-        else -> facilities
-            .filter { facility ->
-                selectedCell != null && facility.cell.equals(selectedCell, ignoreCase = true)
+    val roleScopedFacilities = facilities.filter { facility ->
+        when (roleType) {
+            UserRoleType.CITY_MANAGER -> isKigaliDistrict(facility.district)
+            UserRoleType.DISTRICT_MANAGER -> sameName(facility.district, user.district)
+            UserRoleType.HSO -> {
+                facility.createdBy == user.id &&
+                    sameName(facility.district, user.district) &&
+                    sameName(facility.sector, user.sector)
             }
-            .mapNotNull { it.village.takeIf { value -> value.isNotBlank() } }
+            UserRoleType.OTHER -> true
+        }
     }
-        .distinct()
-        .sorted()
 
+    val districtOptions = if (roleType == UserRoleType.CITY_MANAGER) {
+        val fromCatalog = catalog
+            ?.districtsSorted()
+            ?.map { it.districtName }
+            .orEmpty()
+        (fromCatalog + roleScopedFacilities.map { it.district })
+            .filter { it.isNotBlank() }
+            .distinctBy { normalizeLocationName(it) }
+            .sortedBy { normalizeLocationName(it) }
+    } else {
+        emptyList()
+    }
+    val selectedDistrictValue = selectedDistrict?.let { requested ->
+        districtOptions.firstOrNull { sameName(it, requested) }
+    }
+    LaunchedEffect(districtOptions, selectedDistrict) {
+        if (selectedDistrict != null && selectedDistrictValue == null) {
+            selectedDistrict = null
+        }
+    }
+    val districtScopedFacilities = if (roleType == UserRoleType.CITY_MANAGER && selectedDistrictValue != null) {
+        roleScopedFacilities.filter { facility -> sameName(facility.district, selectedDistrictValue) }
+    } else {
+        roleScopedFacilities
+    }
+
+    val districtIdForScope = when (roleType) {
+        UserRoleType.CITY_MANAGER -> resolveDistrictId(catalog, selectedDistrictValue)
+        UserRoleType.DISTRICT_MANAGER,
+        UserRoleType.HSO,
+        UserRoleType.OTHER,
+        -> resolveDistrictId(catalog, user.district)
+    }
+    val fallbackSectorOptions = districtScopedFacilities.map { it.sector }.filter { it.isNotBlank() }
+    val catalogSectorOptions = catalog?.let { locationCatalog ->
+        val sectorsInScope = when (roleType) {
+            UserRoleType.CITY_MANAGER -> {
+                if (districtIdForScope == null) locationCatalog.sectors
+                else locationCatalog.sectors.filter { it.districtId == districtIdForScope }
+            }
+            UserRoleType.DISTRICT_MANAGER,
+            UserRoleType.HSO,
+            UserRoleType.OTHER,
+            -> {
+                if (districtIdForScope == null) emptyList()
+                else locationCatalog.sectors.filter { it.districtId == districtIdForScope }
+            }
+        }
+        sectorsInScope.map { it.sectorName }
+    }.orEmpty()
+    val sectorOptions = when (roleType) {
+        UserRoleType.HSO -> listOf(user.sector).filter { it.isNotBlank() }
+        else -> (fallbackSectorOptions + catalogSectorOptions)
+            .distinctBy { normalizeLocationName(it) }
+            .sortedBy { normalizeLocationName(it) }
+    }
+    val selectedSectorValue = when (roleType) {
+        UserRoleType.HSO -> sectorOptions.firstOrNull { sameName(it, user.sector) } ?: user.sector
+        else -> selectedSector?.let { requested ->
+            sectorOptions.firstOrNull { sameName(it, requested) }
+        }
+    }
+    LaunchedEffect(sectorOptions, selectedSector, roleType) {
+        if (roleType != UserRoleType.HSO && selectedSector != null && selectedSectorValue == null) {
+            selectedSector = null
+        }
+    }
+    val sectorScopedFacilities = when (roleType) {
+        UserRoleType.CITY_MANAGER,
+        UserRoleType.DISTRICT_MANAGER,
+        UserRoleType.OTHER,
+        -> {
+            if (selectedSectorValue.isNullOrBlank()) districtScopedFacilities
+            else districtScopedFacilities.filter { facility -> sameName(facility.sector, selectedSectorValue) }
+        }
+        UserRoleType.HSO -> districtScopedFacilities.filter { facility -> sameName(facility.sector, user.sector) }
+    }
+
+    val fallbackCells = sectorScopedFacilities.mapNotNull { it.cell.takeIf { value -> value.isNotBlank() } }
+    val sectorIdsInScope = catalog?.let { locationCatalog ->
+        when {
+            !selectedSectorValue.isNullOrBlank() -> locationCatalog.sectors
+                .filter { sector ->
+                    sameName(sector.sectorName, selectedSectorValue) &&
+                        (districtIdForScope == null || sector.districtId == districtIdForScope)
+                }
+                .map { it.sectorId }
+                .toSet()
+            districtIdForScope != null -> locationCatalog.sectors
+                .filter { it.districtId == districtIdForScope }
+                .map { it.sectorId }
+                .toSet()
+            roleType == UserRoleType.CITY_MANAGER -> locationCatalog.sectors.map { it.sectorId }.toSet()
+            else -> emptySet()
+        }
+    }.orEmpty()
+    val catalogCellOptions = catalog?.let { locationCatalog ->
+        if (sectorIdsInScope.isEmpty()) emptyList()
+        else locationCatalog.cells
+            .filter { cell -> cell.sectorId in sectorIdsInScope }
+            .map { cell -> cell.cellName }
+    }.orEmpty()
+    val cellOptions = (fallbackCells + catalogCellOptions)
+        .distinctBy { normalizeLocationName(it) }
+        .sortedBy { normalizeLocationName(it) }
+    val selectedCellValue = selectedCell?.let { requested ->
+        cellOptions.firstOrNull { it.equals(requested, ignoreCase = true) }
+    }
     LaunchedEffect(cellOptions, selectedCell) {
-        if (selectedCell != null &&
-            cellOptions.none { it.equals(selectedCell, ignoreCase = true) }
-        ) {
+        if (selectedCell != null && selectedCellValue == null) {
             selectedCell = null
         }
     }
+    val cellScopedFacilities = if (selectedCellValue == null) {
+        sectorScopedFacilities
+    } else {
+        sectorScopedFacilities.filter { facility -> sameName(facility.cell, selectedCellValue) }
+    }
 
-    LaunchedEffect(selectedCell, villageOptions) {
-        if (selectedVillage != null &&
-            villageOptions.none { it.equals(selectedVillage, ignoreCase = true) }
-        ) {
+    val cellIdsInScope = catalog?.let { locationCatalog ->
+        when {
+            !selectedCellValue.isNullOrBlank() -> locationCatalog.cells
+                .filter { cell ->
+                    sameName(cell.cellName, selectedCellValue) &&
+                        (sectorIdsInScope.isEmpty() || cell.sectorId in sectorIdsInScope)
+                }
+                .map { it.cellId }
+                .toSet()
+            sectorIdsInScope.isNotEmpty() -> locationCatalog.cells
+                .filter { it.sectorId in sectorIdsInScope }
+                .map { it.cellId }
+                .toSet()
+            else -> emptySet()
+        }
+    }.orEmpty()
+    val catalogVillageOptions = catalog?.let { locationCatalog ->
+        if (cellIdsInScope.isEmpty()) emptyList()
+        else locationCatalog.villages
+            .filter { village -> village.cellId in cellIdsInScope }
+            .map { village -> village.villageName }
+    }.orEmpty()
+    val villageOptions = (catalogVillageOptions + (if (selectedCellValue == null) sectorScopedFacilities else cellScopedFacilities).mapNotNull { it.village.takeIf { value -> value.isNotBlank() } })
+        .distinctBy { normalizeLocationName(it) }
+        .sortedBy { normalizeLocationName(it) }
+    val selectedVillageValue = selectedVillage?.let { requested ->
+        villageOptions.firstOrNull { it.equals(requested, ignoreCase = true) }
+    }
+    LaunchedEffect(selectedCellValue, villageOptions, selectedVillage) {
+        if (selectedVillage != null && selectedVillageValue == null) {
             selectedVillage = null
         }
-        if (selectedCell == null && selectedVillage != null) {
+        if (selectedCellValue == null && selectedVillage != null) {
             selectedVillage = null
         }
     }
+    val villageScopedFacilities = if (selectedVillageValue == null) {
+        cellScopedFacilities
+    } else {
+        cellScopedFacilities.filter { facility -> sameName(facility.village, selectedVillageValue) }
+    }
+    val visibleFacilityIds = villageScopedFacilities
+        .flatMap { facility -> listOfNotNull(facility.id, facility.serverId) }
+        .filter { it.isNotBlank() }
+        .toSet()
+    val roleScopedInspections = inspections.filter { inspection ->
+        val facilityInScope = inspection.facilityId in visibleFacilityIds
+        if (!facilityInScope) return@filter false
+        when (roleType) {
+            UserRoleType.HSO -> inspection.createdBy == user.id
+            else -> true
+        }
+    }
+    val sortedInspections = roleScopedInspections.sortedByDescending { it.createdAt }
 
-    val sortedInspections = inspections.sortedByDescending { it.createdAt }
+    LaunchedEffect(user.id, roleType, reportPrefill, districtOptions, sectorOptions, cellOptions, villageOptions) {
+        val prefill = reportPrefill ?: return@LaunchedEffect
+        if (roleType == UserRoleType.CITY_MANAGER) {
+            selectedDistrict = prefill.district?.let { requested ->
+                districtOptions.firstOrNull { sameName(it, requested) }
+            }
+        } else {
+            selectedDistrict = null
+        }
+        if (roleType != UserRoleType.HSO) {
+            selectedSector = prefill.sector?.let { requested ->
+                sectorOptions.firstOrNull { sameName(it, requested) }
+            }
+        }
+        selectedCell = prefill.cell?.let { requested ->
+            cellOptions.firstOrNull { sameName(it, requested) }
+        }
+        selectedVillage = prefill.village?.let { requested ->
+            villageOptions.firstOrNull { sameName(it, requested) }
+        }
+        DraftStore.reportFiltersPrefill.value = null
+    }
+
     val filteredByStatus = when (selectedFilter) {
         filterPending -> sortedInspections.filter { it.syncStatus.name == "PENDING" }
         filterSynced -> sortedInspections.filter { it.syncStatus.name == "SYNCED" }
+        filterToday -> sortedInspections.filter { isSameDay(it.createdAt) }
+        filterWeek -> sortedInspections.filter { isWithinLastDays(it.createdAt, 7) }
         else -> sortedInspections
     }
-    val facilityLookup = facilities.associateBy { it.id }
+    val facilityLookup = villageScopedFacilities
+        .flatMap { facility ->
+            listOfNotNull(
+                facility.id.takeIf { it.isNotBlank() }?.let { it to facility },
+                facility.serverId?.takeIf { it.isNotBlank() }?.let { it to facility },
+            )
+        }
+        .toMap()
     val filtered = filteredByStatus.filter { inspection ->
         matchesInspectionFilters(
-            inspection = inspection,
             facility = facilityLookup[inspection.facilityId],
-            cell = selectedCell,
-            village = selectedVillage,
+            district = selectedDistrictValue,
+            sector = selectedSectorValue,
+            cell = selectedCellValue,
+            village = selectedVillageValue,
         )
     }
     val showSkeleton = inspections.isEmpty() && showInitialSkeleton
@@ -205,11 +379,61 @@ fun InspectionsScreen(
                     )
                 }
             }
+            if (roleType == UserRoleType.CITY_MANAGER) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterDropdown(
+                        modifier = Modifier.weight(1f),
+                        label = stringResource(R.string.district),
+                        value = selectedDistrictValue ?: "All Districts",
+                        options = districtOptions,
+                        allLabel = "All Districts",
+                        onSelected = {
+                            selectedDistrict = it
+                            selectedSector = null
+                            selectedCell = null
+                            selectedVillage = null
+                        },
+                    )
+                    FilterDropdown(
+                        modifier = Modifier.weight(1f),
+                        label = stringResource(R.string.filter_sector),
+                        value = selectedSectorValue ?: stringResource(R.string.all_sectors),
+                        options = sectorOptions,
+                        allLabel = stringResource(R.string.all_sectors),
+                        onSelected = {
+                            selectedSector = it
+                            selectedCell = null
+                            selectedVillage = null
+                        },
+                    )
+                }
+            } else if (roleType == UserRoleType.DISTRICT_MANAGER) {
+                FilterDropdown(
+                    modifier = Modifier.fillMaxWidth(),
+                    label = stringResource(R.string.filter_sector),
+                    value = selectedSectorValue ?: stringResource(R.string.all_sectors),
+                    options = sectorOptions,
+                    allLabel = stringResource(R.string.all_sectors),
+                    onSelected = {
+                        selectedSector = it
+                        selectedCell = null
+                        selectedVillage = null
+                    },
+                )
+            } else if (roleType == UserRoleType.HSO) {
+                StyledTextField(
+                    value = selectedSectorValue ?: user.sector,
+                    onValueChange = {},
+                    label = stringResource(R.string.filter_sector),
+                    readOnly = true,
+                    enabled = false,
+                )
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterDropdown(
                     modifier = Modifier.weight(1f),
                     label = stringResource(R.string.filter_cell),
-                    value = selectedCell ?: stringResource(R.string.all_cells),
+                    value = selectedCellValue ?: stringResource(R.string.all_cells),
                     options = cellOptions,
                     allLabel = stringResource(R.string.all_cells),
                     onSelected = {
@@ -222,7 +446,7 @@ fun InspectionsScreen(
                 FilterDropdown(
                     modifier = Modifier.weight(1f),
                     label = stringResource(R.string.filter_village),
-                    value = selectedVillage ?: stringResource(R.string.all_villages),
+                    value = selectedVillageValue ?: stringResource(R.string.all_villages),
                     options = villageOptions,
                     allLabel = stringResource(R.string.all_villages),
                     onSelected = {
@@ -335,17 +559,97 @@ private fun FilterDropdown(
 }
 
 private fun matchesInspectionFilters(
-    inspection: Inspection,
     facility: Facility?,
+    district: String?,
+    sector: String?,
     cell: String?,
     village: String?,
 ): Boolean {
-    if (cell == null && village == null) {
+    if (district == null && sector == null && cell == null && village == null) {
         return true
     }
+    val matchesDistrict = district == null || facility?.district?.equals(district, ignoreCase = true) == true
+    val matchesSector = sector == null || facility?.sector?.equals(sector, ignoreCase = true) == true
     val matchesCell = cell == null || facility?.cell?.equals(cell, ignoreCase = true) == true
     val matchesVillage = village == null || facility?.village?.equals(village, ignoreCase = true) == true
-    return matchesCell && matchesVillage
+    return matchesDistrict && matchesSector && matchesCell && matchesVillage
+}
+
+private fun resolveDistrictId(catalog: LocationCatalog?, districtName: String?): Int? {
+    val normalizedTarget = normalizeLocationName(districtName)
+    if (catalog == null || normalizedTarget.isBlank()) return null
+
+    val directMatch = catalog.districts.firstOrNull { district ->
+        sameName(district.districtName, districtName)
+    }
+    if (directMatch != null) return directMatch.districtId
+
+    val numericId = districtName?.trim()?.toIntOrNull()
+    if (numericId != null && catalog.districts.any { it.districtId == numericId }) {
+        return numericId
+    }
+
+    val keywordMatch = when {
+        normalizedTarget.contains("gasabo") -> "gasabo"
+        normalizedTarget.contains("kicukiro") -> "kicukiro"
+        normalizedTarget.contains("nyarugenge") -> "nyarugenge"
+        else -> null
+    }
+    if (keywordMatch != null) {
+        return catalog.districts
+            .firstOrNull { normalizeLocationName(it.districtName) == keywordMatch }
+            ?.districtId
+    }
+
+    return catalog.districts.firstOrNull { district ->
+        val districtNormalized = normalizeLocationName(district.districtName)
+        districtNormalized.contains(normalizedTarget) ||
+            normalizedTarget.contains(districtNormalized)
+    }?.districtId
+}
+
+private fun sameName(left: String?, right: String?): Boolean {
+    val rawLeft = left.orEmpty().trim()
+    val rawRight = right.orEmpty().trim()
+    if (rawLeft.equals(rawRight, ignoreCase = true)) return true
+    val normalizedLeft = normalizeLocationName(rawLeft)
+    val normalizedRight = normalizeLocationName(rawRight)
+    return normalizedLeft == normalizedRight ||
+        normalizedLeft.contains(normalizedRight) ||
+        normalizedRight.contains(normalizedLeft)
+}
+
+private fun normalizeLocationName(value: String?): String {
+    return value
+        .orEmpty()
+        .trim()
+        .lowercase()
+        .replace("district", "")
+        .replace("sector", "")
+        .replace("cell", "")
+        .replace("village", "")
+        .replace(Regex("[^a-z0-9]"), "")
+}
+
+private fun isKigaliDistrict(name: String?): Boolean {
+    return when (normalizeLocationName(name)) {
+        "gasabo", "kicukiro", "nyarugenge" -> true
+        else -> false
+    }
+}
+
+private fun isSameDay(timestamp: Long): Boolean {
+    val zoneId = java.time.ZoneId.systemDefault()
+    val date = java.time.Instant.ofEpochMilli(timestamp).atZone(zoneId).toLocalDate()
+    val today = java.time.LocalDate.now(zoneId)
+    return date == today
+}
+
+private fun isWithinLastDays(timestamp: Long, days: Int): Boolean {
+    val zoneId = java.time.ZoneId.systemDefault()
+    val date = java.time.Instant.ofEpochMilli(timestamp).atZone(zoneId).toLocalDate()
+    val today = java.time.LocalDate.now(zoneId)
+    return !date.isBefore(today.minusDays((days - 1).toLong())) && !date.isAfter(today)
 }
 
 private fun decisionAccentColor(decision: Decision): Color {

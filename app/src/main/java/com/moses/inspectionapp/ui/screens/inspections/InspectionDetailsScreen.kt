@@ -92,7 +92,9 @@ fun InspectionDetailsScreen(
     val user = repository.userProfile.collectAsState().value
     val selectedId = DraftStore.selectedInspectionId.collectAsState().value
     val inspection = inspections.firstOrNull { it.id == selectedId }
-    val facility = facilities.firstOrNull { it.id == inspection?.facilityId }
+    val facility = facilities.firstOrNull { facilityItem ->
+        facilityItem.id == inspection?.facilityId || facilityItem.serverId == inspection?.facilityId
+    }
     val inspectionType = inspectionTypes.firstOrNull { it.id == inspection?.inspectionTypeId }
     val photoScrollState = rememberScrollState()
     val now = System.currentTimeMillis()

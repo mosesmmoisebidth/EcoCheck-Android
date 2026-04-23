@@ -42,6 +42,7 @@ import com.moses.inspectionapp.ui.screens.inspections.InspectionPdfScreen
 import com.moses.inspectionapp.ui.screens.profile.ProfileScreen
 import com.moses.inspectionapp.ui.screens.profile.NotificationHistoryScreen
 import com.moses.inspectionapp.ui.screens.profile.SettingsScreen
+import com.moses.inspectionapp.ui.screens.profile.UserManagementScreen
 import com.moses.inspectionapp.ui.screens.states.StatesDemoScreen
 import com.moses.inspectionapp.ui.screens.sync.SyncScreen
 import com.moses.inspectionapp.ui.screens.sync.SyncConflictsScreen
@@ -375,12 +376,21 @@ fun MainScaffold(
             composable(MainRoute.SyncConflicts) {
                 SyncConflictsScreen(onBack = { navController.popBackStack() })
             }
-            composable(MainRoute.Stats) { StatsScreen(onBack = { navController.popBackStack() }) }
+            composable(MainRoute.Stats) {
+                StatsScreen(
+                    onBack = { navController.popBackStack() },
+                    onManageUsers = { navController.navigate(MainRoute.UserManagement) },
+                    onOpenReports = { navController.navigate(MainRoute.Inspections) { launchSingleTop = true } },
+                )
+            }
             composable(MainRoute.Settings) {
                 SettingsScreen(
                     onBack = { navController.popBackStack() },
                     onNotificationHistory = { navController.navigate(MainRoute.Notifications) },
                 )
+            }
+            composable(MainRoute.UserManagement) {
+                UserManagementScreen(onBack = { navController.popBackStack() })
             }
             composable(MainRoute.Notifications) {
                 NotificationHistoryScreen(onBack = { navController.popBackStack() })
@@ -388,6 +398,7 @@ fun MainScaffold(
             composable(MainRoute.Profile) {
                 ProfileScreen(
                     onSettings = { navController.navigate(MainRoute.Settings) },
+                    onManageUsers = { navController.navigate(MainRoute.UserManagement) },
                     onLogout = onLogout,
                 )
             }

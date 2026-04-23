@@ -13,9 +13,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Alignment
@@ -30,7 +32,9 @@ import com.moses.inspectionapp.data.model.FacilityDraft
 import com.moses.inspectionapp.data.model.InspectionDraft
 import com.moses.inspectionapp.data.model.decisionOptionsInUiOrder
 import com.moses.inspectionapp.data.store.DraftStore
+import com.moses.inspectionapp.data.validator.InputValidators
 import com.moses.inspectionapp.ui.components.AppTopBar
+import com.moses.inspectionapp.ui.components.CountryPhoneField
 import com.moses.inspectionapp.ui.components.ErrorState
 import com.moses.inspectionapp.ui.components.PrimaryButton
 import com.moses.inspectionapp.ui.components.SectionHeader
@@ -71,7 +75,10 @@ fun EditRecordScreen(
     val (adjustmentEnabled, setAdjustmentEnabled) = remember { mutableStateOf(inspection?.adjustmentAmount != 0) }
     val (adjustmentAmount, setAdjustmentAmount) = remember { mutableStateOf(inspection?.adjustmentAmount?.toString() ?: "0") }
     val (adjustmentReason, setAdjustmentReason) = remember { mutableStateOf(inspection?.adjustmentReason.orEmpty()) }
+    var formError by remember { mutableStateOf<String?>(null) }
     val scrollState = rememberScrollState()
+    val ownerPhoneE164 = InputValidators.toE164(ownerPhone, "RW")
+    val ownerPhoneValid = ownerPhone.isBlank() || InputValidators.isValidInternationalPhone(ownerPhoneE164)
 
     LaunchedEffect(inspection?.id) {
         if (inspection != null) {
@@ -105,11 +112,18 @@ fun EditRecordScreen(
                     label = { Text(stringResource(R.string.facility_name)) },
                     enabled = canEdit,
                 )
-                OutlinedTextField(
+                CountryPhoneField(
                     value = ownerPhone,
                     onValueChange = setOwnerPhone,
-                    label = { Text(stringResource(R.string.owner_phone)) },
+                    label = stringResource(R.string.owner_phone),
+                    isError = ownerPhone.isNotBlank() && !ownerPhoneValid,
+                    errorText = if (ownerPhone.isNotBlank() && !ownerPhoneValid) {
+                        stringResource(R.string.phone_invalid)
+                    } else {
+                        null
+                    },
                     enabled = canEdit,
+                    defaultCountryIso = "RW",
                 )
             }
             if (inspection != null) {
@@ -188,6 +202,11 @@ fun EditRecordScreen(
                 text = stringResource(R.string.save_changes),
                 onClick = {
                     scope.launch {
+                        formError = null
+                        if (!ownerPhoneValid) {
+                            formError = context.getString(R.string.phone_invalid)
+                            return@launch
+                        }
                         if (facility != null) {
                             repository.updateFacility(
                                 facility.id,
@@ -195,7 +214,7 @@ fun EditRecordScreen(
                                     name = name.trim(),
                                     tin = facility.tin,
                                     ownerName = facility.ownerName,
-                                    ownerPhone = ownerPhone.trim(),
+                                    ownerPhone = ownerPhoneE164,
                                     ownerEmail = facility.ownerEmail,
                                     district = facility.district,
                                     sector = facility.sector,
@@ -237,6 +256,12 @@ fun EditRecordScreen(
                 },
                 enabled = canEdit,
             )
+            if (!formError.isNullOrBlank()) {
+                Text(
+                    text = formError.orEmpty(),
+                    color = com.moses.inspectionapp.ui.theme.AppColors.AccentRed,
+                )
+            }
         }
     }
 }

@@ -240,7 +240,7 @@ class SyncWorker(
             longitude = remote.longitude,
             photoPath = remote.photoPath,
             createdAt = remote.createdAt,
-            createdBy = remote.createdBy,
+            createdBy = remote.createdBy.takeIf { it.isNotBlank() } ?: existing?.createdBy.orEmpty(),
             updatedAt = remote.updatedAt,
             syncStatus = remote.syncStatus,
         )
@@ -273,7 +273,7 @@ class SyncWorker(
             recommendations = remote.recommendations,
             photoPaths = remote.photoPaths.joinToString("|"),
             createdAt = remote.createdAt,
-            createdBy = remote.createdBy,
+            createdBy = remote.createdBy.takeIf { it.isNotBlank() } ?: existing?.createdBy.orEmpty(),
             updatedAt = remote.updatedAt,
             syncStatus = remote.syncStatus,
         )

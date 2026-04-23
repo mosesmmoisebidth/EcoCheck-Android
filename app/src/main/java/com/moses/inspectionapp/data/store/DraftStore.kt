@@ -9,6 +9,13 @@ enum class PhotoCaptureTarget {
     INSPECTION,
 }
 
+data class ReportFiltersPrefill(
+    val district: String? = null,
+    val sector: String? = null,
+    val cell: String? = null,
+    val village: String? = null,
+)
+
 object DraftStore {
     val facilityPhotoPath = MutableStateFlow<String?>(null)
     val facilityLocation = MutableStateFlow<GeoPoint?>(null)
@@ -17,6 +24,7 @@ object DraftStore {
     val inspectionPhotoPaths = MutableStateFlow<List<String>>(emptyList())
     val photoCaptureTarget = MutableStateFlow(PhotoCaptureTarget.FACILITY)
     val inspectionDraft = MutableStateFlow(InspectionDraft())
+    val reportFiltersPrefill = MutableStateFlow<ReportFiltersPrefill?>(null)
 
     fun resetInspectionDraft() {
         inspectionDraft.value = InspectionDraft()

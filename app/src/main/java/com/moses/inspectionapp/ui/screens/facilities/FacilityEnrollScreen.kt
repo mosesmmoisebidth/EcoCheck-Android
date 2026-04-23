@@ -32,7 +32,6 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LocationCity
 import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material.icons.rounded.CameraAlt
 import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.material3.DropdownMenuItem
@@ -74,6 +73,7 @@ import com.moses.inspectionapp.data.model.FacilityDraft
 import com.moses.inspectionapp.data.store.DraftStore
 import com.moses.inspectionapp.data.validator.InputValidators
 import com.moses.inspectionapp.ui.components.AppTopBar
+import com.moses.inspectionapp.ui.components.CountryPhoneField
 import com.moses.inspectionapp.ui.components.ErrorState
 import com.moses.inspectionapp.ui.components.OfflineBanner
 import com.moses.inspectionapp.ui.components.PrimaryButton
@@ -285,16 +285,21 @@ fun FacilityEnrollScreen(
     }
 
     val tinNormalized = InputValidators.normalizeTin(tin)
+    val ownerNameNormalized = InputValidators.normalizeName(ownerName)
     val phoneNormalized = InputValidators.normalizePhone(ownerPhone)
+    val phoneE164 = InputValidators.toE164(phoneNormalized, fallbackRegionIso = "RW")
+    val ownerEmailNormalized = InputValidators.normalizeEmail(ownerEmail)
     val tinValid = tinNormalized.isNotBlank() && InputValidators.isValidTin(tinNormalized)
-    val phoneValid = phoneNormalized.isNotBlank() && InputValidators.isValidRwandaPhone(phoneNormalized)
+    val phoneValid = phoneE164.isNotBlank() && InputValidators.isValidInternationalPhone(phoneE164)
+    val ownerNameValid = ownerNameNormalized.isNotBlank() && InputValidators.isValidName(ownerNameNormalized)
+    val ownerEmailValid = ownerEmailNormalized.isBlank() || InputValidators.isValidEmail(ownerEmailNormalized)
     val requiredValid = name.isNotBlank() &&
-        ownerName.isNotBlank() &&
+        ownerNameValid &&
         districtName.isNotBlank() &&
         sectorName.isNotBlank() &&
         cellName.isNotBlank() &&
         villageName.isNotBlank()
-    val canSave = tinValid && phoneValid && requiredValid
+    val canSave = tinValid && phoneValid && ownerEmailValid && requiredValid
 
     Box(
         modifier = Modifier
@@ -440,7 +445,7 @@ fun FacilityEnrollScreen(
                         )
                         StyledTextField(
                             value = tin,
-                            onValueChange = setTin,
+                            onValueChange = { setTin(InputValidators.normalizeTin(it)) },
                             label = stringResource(R.string.tin),
                             leadingIcon = Icons.Rounded.Badge,
                             isError = tin.isNotBlank() && !tinValid,
@@ -466,28 +471,42 @@ fun FacilityEnrollScreen(
                     ) {
                         StyledTextField(
                             value = ownerName,
-                            onValueChange = setOwnerName,
+                            onValueChange = { setOwnerName(InputValidators.normalizeName(it)) },
                             label = stringResource(R.string.owner_name),
                             leadingIcon = Icons.Rounded.Person,
+                            isError = ownerName.isNotBlank() && !ownerNameValid,
+                            errorText = if (ownerName.isNotBlank() && !ownerNameValid) {
+                                stringResource(R.string.user_name_validation)
+                            } else {
+                                null
+                            },
                         )
-                        StyledTextField(
+                        CountryPhoneField(
                             value = ownerPhone,
                             onValueChange = setOwnerPhone,
                             label = stringResource(R.string.owner_phone),
-                            placeholder = "+250 7XX XXX XXX",
-                            leadingIcon = Icons.Rounded.Phone,
                             isError = ownerPhone.isNotBlank() && !phoneValid,
                             errorText = if (ownerPhone.isNotBlank() && !phoneValid) {
                                 stringResource(R.string.phone_invalid)
                             } else {
                                 null
                             },
+                            defaultCountryIso = "RW",
                         )
                         StyledTextField(
                             value = ownerEmail,
-                            onValueChange = setOwnerEmail,
+                            onValueChange = { setOwnerEmail(InputValidators.normalizeEmail(it)) },
                             label = stringResource(R.string.owner_email_optional),
                             leadingIcon = Icons.Rounded.Email,
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                keyboardType = androidx.compose.ui.text.input.KeyboardType.Email,
+                            ),
+                            isError = ownerEmail.isNotBlank() && !ownerEmailValid,
+                            errorText = if (ownerEmail.isNotBlank() && !ownerEmailValid) {
+                                stringResource(R.string.user_email_validation)
+                            } else {
+                                null
+                            },
                             trailingIcon = {
                                 Surface(
                                     color = AppColors.SteelBlueTint,
@@ -755,9 +774,9 @@ fun FacilityEnrollScreen(
                                     val draft = FacilityDraft(
                                         name = name.trim(),
                                         tin = tinNormalized,
-                                        ownerName = ownerName.trim(),
-                                        ownerPhone = phoneNormalized,
-                                        ownerEmail = ownerEmail.trim(),
+                                        ownerName = ownerNameNormalized,
+                                        ownerPhone = phoneE164,
+                                        ownerEmail = ownerEmailNormalized,
                                         district = districtName.trim(),
                                         sector = sectorName.trim(),
                                         cell = cellName.trim(),

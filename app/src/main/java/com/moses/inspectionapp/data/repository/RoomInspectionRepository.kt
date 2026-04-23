@@ -18,7 +18,9 @@ import com.moses.inspectionapp.data.model.PendingCounts
 import com.moses.inspectionapp.data.model.Stats
 import com.moses.inspectionapp.data.model.SyncStatus
 import com.moses.inspectionapp.data.model.UserProfile
+import com.moses.inspectionapp.data.model.UserRoleType
 import com.moses.inspectionapp.data.model.parseDecision
+import com.moses.inspectionapp.data.model.parseUserRole
 import com.moses.inspectionapp.data.model.totalFine
 import com.moses.inspectionapp.data.model.VisitType
 import com.moses.inspectionapp.data.remote.ApiClient
@@ -43,6 +45,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.io.File
 import java.util.UUID
+import java.util.Locale
 
 class RoomInspectionRepository(
     database: AppDatabase,
@@ -65,14 +68,36 @@ class RoomInspectionRepository(
     }
 
     override val userProfile: StateFlow<UserProfile> = UserSessionStore.profile
-    override val facilities: StateFlow<List<Facility>> =
+    private val rawFacilities =
         facilityDao.observeFacilities()
             .map { list -> list.map { it.toDomain() } }
+    private val rawInspections =
+        inspectionDao.observeInspections()
+            .map { list -> list.map { it.toDomain() } }
+
+    override val facilities: StateFlow<List<Facility>> =
+        combine(userProfile, rawFacilities) { profile, facilityList ->
+            filterFacilitiesForProfile(facilityList, profile)
+        }
             .stateIn(externalScope, SharingStarted.Eagerly, emptyList())
 
     override val inspections: StateFlow<List<Inspection>> =
-        inspectionDao.observeInspections()
-            .map { list -> list.map { it.toDomain() } }
+        combine(userProfile, rawFacilities, rawInspections) { profile, facilityList, inspectionList ->
+            val roleType = parseUserRole(profile.role)
+            val scopedFacilities = filterFacilitiesForProfile(facilityList, profile)
+            val scopedFacilityIds = scopedFacilities
+                .flatMap { facility -> listOfNotNull(facility.id, facility.serverId) }
+                .filter { it.isNotBlank() }
+                .toSet()
+            inspectionList.filter { inspection ->
+                val inFacilityScope = inspection.facilityId in scopedFacilityIds
+                if (!inFacilityScope) return@filter false
+                when (roleType) {
+                    UserRoleType.HSO -> inspection.createdBy == profile.id
+                    else -> true
+                }
+            }
+        }
             .stateIn(externalScope, SharingStarted.Eagerly, emptyList())
 
     override val faults: StateFlow<List<Fault>> =
@@ -227,7 +252,7 @@ class RoomInspectionRepository(
                             photoPath = remote.photoPath ?: current.photoPath,
                             createdAt = remote.createdAt,
                             updatedAt = remote.updatedAt,
-                            createdBy = remote.createdBy,
+                            createdBy = remote.createdBy.takeIf { it.isNotBlank() } ?: current.createdBy,
                             syncStatus = SyncStatus.SYNCED.name,
                         ),
                     )
@@ -347,7 +372,7 @@ class RoomInspectionRepository(
                             photoPaths = remote.photoPaths.joinToString("|"),
                             createdAt = remote.createdAt,
                             updatedAt = remote.updatedAt,
-                            createdBy = remote.createdBy,
+                            createdBy = remote.createdBy.takeIf { it.isNotBlank() } ?: current.createdBy,
                             syncStatus = SyncStatus.SYNCED.name,
                         ),
                     )
@@ -436,7 +461,7 @@ class RoomInspectionRepository(
                             photoPaths = remote.photoPaths.joinToString("|"),
                             createdAt = remote.createdAt,
                             updatedAt = remote.updatedAt,
-                            createdBy = remote.createdBy,
+                            createdBy = remote.createdBy.takeIf { it.isNotBlank() } ?: current.createdBy,
                             syncStatus = SyncStatus.SYNCED.name,
                         ),
                     )
@@ -484,7 +509,7 @@ class RoomInspectionRepository(
                     photoPath = remote.photoPath ?: current.photoPath,
                     createdAt = remote.createdAt,
                     updatedAt = remote.updatedAt,
-                    createdBy = remote.createdBy,
+                    createdBy = remote.createdBy.takeIf { it.isNotBlank() } ?: current.createdBy,
                     syncStatus = SyncStatus.SYNCED.name,
                 ),
             )
@@ -547,7 +572,7 @@ class RoomInspectionRepository(
             longitude = remote.longitude,
             photoPath = remote.photoPath,
             createdAt = remote.createdAt,
-            createdBy = remote.createdBy,
+            createdBy = remote.createdBy.takeIf { it.isNotBlank() } ?: existing?.createdBy.orEmpty(),
             updatedAt = remote.updatedAt,
             syncStatus = remote.syncStatus,
         )
@@ -602,6 +627,53 @@ class RoomInspectionRepository(
                 }
             }
         }
+    }
+}
+
+private fun filterFacilitiesForProfile(
+    facilities: List<Facility>,
+    profile: UserProfile,
+): List<Facility> {
+    val roleType = parseUserRole(profile.role)
+    return facilities.filter { facility ->
+        when (roleType) {
+            UserRoleType.HSO -> {
+                facility.createdBy == profile.id &&
+                    sameLocationName(facility.district, profile.district) &&
+                    sameLocationName(facility.sector, profile.sector)
+            }
+            UserRoleType.DISTRICT_MANAGER -> sameLocationName(facility.district, profile.district)
+            UserRoleType.CITY_MANAGER -> isKigaliDistrictName(facility.district)
+            UserRoleType.OTHER -> true
+        }
+    }
+}
+
+private fun sameLocationName(left: String?, right: String?): Boolean {
+    val leftNormalized = normalizeLocationName(left)
+    val rightNormalized = normalizeLocationName(right)
+    if (leftNormalized.isBlank() || rightNormalized.isBlank()) return false
+    return leftNormalized == rightNormalized ||
+        leftNormalized.contains(rightNormalized) ||
+        rightNormalized.contains(leftNormalized)
+}
+
+private fun normalizeLocationName(value: String?): String {
+    return value
+        .orEmpty()
+        .trim()
+        .lowercase(Locale.getDefault())
+        .replace("district", "")
+        .replace("sector", "")
+        .replace("cell", "")
+        .replace("village", "")
+        .replace(Regex("[^a-z0-9]"), "")
+}
+
+private fun isKigaliDistrictName(name: String?): Boolean {
+    return when (normalizeLocationName(name)) {
+        "gasabo", "kicukiro", "nyarugenge" -> true
+        else -> false
     }
 }
 

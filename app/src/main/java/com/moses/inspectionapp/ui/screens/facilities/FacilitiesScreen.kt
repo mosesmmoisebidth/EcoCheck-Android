@@ -43,6 +43,8 @@ import com.moses.inspectionapp.data.AppContainer
 import com.moses.inspectionapp.data.location.LocationCatalog
 import com.moses.inspectionapp.data.location.LocationCatalogStore
 import com.moses.inspectionapp.data.model.Facility
+import com.moses.inspectionapp.data.model.UserRoleType
+import com.moses.inspectionapp.data.model.parseUserRole
 import com.moses.inspectionapp.data.repository.RoomInspectionRepository
 import com.moses.inspectionapp.data.store.DraftStore
 import com.moses.inspectionapp.ui.components.AppTopBar
@@ -58,6 +60,7 @@ import com.moses.inspectionapp.ui.theme.Dimens
 import com.moses.inspectionapp.ui.util.mouseWheelScroll
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.util.Locale
 
 @Composable
 fun FacilitiesScreen(
@@ -69,6 +72,7 @@ fun FacilitiesScreen(
     val repository = AppContainer.repository
     val facilities = repository.facilities.collectAsState().value
     val user = repository.userProfile.collectAsState().value
+    val roleType = parseUserRole(user.role)
     val context = LocalContext.current
     val catalogState = produceState<LocationCatalog?>(initialValue = null, key1 = context) {
         value = LocationCatalogStore.load(context)
@@ -101,17 +105,62 @@ fun FacilitiesScreen(
         }
     }
 
+    val roleScopedFacilities = facilities.filter { facility ->
+        when (roleType) {
+            UserRoleType.HSO -> {
+                facility.createdBy == user.id &&
+                    sameName(facility.district, user.district) &&
+                    sameName(facility.sector, user.sector)
+            }
+            UserRoleType.DISTRICT_MANAGER -> sameName(facility.district, user.district)
+            UserRoleType.CITY_MANAGER -> isKigaliDistrict(facility.district)
+            UserRoleType.OTHER -> true
+        }
+    }
+
     val normalizedQuery = query.trim()
-    val fallbackCells = facilities
+    val fallbackCells = roleScopedFacilities
         .mapNotNull { it.cell.takeIf { value -> value.isNotBlank() } }
         .distinct()
         .sorted()
-    val sectorMatch = catalog?.sectors?.firstOrNull {
-        it.sectorName.equals(user.sector, ignoreCase = true)
-    }
-    val scopedCells = when {
-        catalog != null && sectorMatch != null -> catalog.cellsForSector(sectorMatch.sectorId)
-        else -> emptyList()
+    val scopedCells = when (roleType) {
+        UserRoleType.HSO -> {
+            val districtId = resolveDistrictId(catalog, user.district)
+            val sectorMatch = if (districtId != null) {
+                catalog?.sectorsForDistrict(districtId)
+                    ?.firstOrNull { sector -> sameName(sector.sectorName, user.sector) }
+            } else {
+                catalog?.sectors?.firstOrNull { sector -> sameName(sector.sectorName, user.sector) }
+            }
+            if (sectorMatch == null) emptyList()
+            else catalog?.cellsForSector(sectorMatch.sectorId).orEmpty()
+        }
+        UserRoleType.DISTRICT_MANAGER -> {
+            val districtId = resolveDistrictId(catalog, user.district)
+            if (districtId == null) {
+                emptyList()
+            } else {
+                catalog?.sectorsForDistrict(districtId)
+                    .orEmpty()
+                    .flatMap { sector -> catalog?.cellsForSector(sector.sectorId).orEmpty() }
+            }
+        }
+        UserRoleType.CITY_MANAGER -> {
+            val kigaliDistrictIds = catalog?.districts
+                ?.filter { district -> isKigaliDistrict(district.districtName) }
+                ?.map { district -> district.districtId }
+                ?.toSet()
+                .orEmpty()
+            if (kigaliDistrictIds.isEmpty()) {
+                emptyList()
+            } else {
+                catalog?.sectors
+                    .orEmpty()
+                    .filter { sector -> sector.districtId in kigaliDistrictIds }
+                    .flatMap { sector -> catalog?.cellsForSector(sector.sectorId).orEmpty() }
+            }
+        }
+        UserRoleType.OTHER -> catalog?.cells.orEmpty()
     }
     val cellOptions = scopedCells
         .map { it.cellName }
@@ -125,7 +174,7 @@ fun FacilitiesScreen(
         catalog != null && selectedCellItem != null ->
             catalog.villagesForCell(selectedCellItem.cellId)
                 .map { it.villageName }
-        else -> facilities
+        else -> roleScopedFacilities
             .filter { facility ->
                 selectedCell != null && facility.cell.equals(selectedCell, ignoreCase = true)
             }
@@ -153,7 +202,7 @@ fun FacilitiesScreen(
         }
     }
 
-    val filtered = facilities
+    val filtered = roleScopedFacilities
         .sortedByDescending { it.createdAt }
         .filter { facility ->
             matchesFilters(
@@ -377,4 +426,63 @@ private fun matchesFilters(
     val matchesCell = cell == null || facility.cell.equals(cell, ignoreCase = true)
     val matchesVillage = village == null || facility.village.equals(village, ignoreCase = true)
     return matchesQuery && matchesCell && matchesVillage
+}
+
+private fun resolveDistrictId(catalog: LocationCatalog?, districtName: String?): Int? {
+    val normalizedTarget = normalizeLocationName(districtName)
+    if (catalog == null || normalizedTarget.isBlank()) return null
+
+    val directMatch = catalog.districts.firstOrNull { district ->
+        sameName(district.districtName, districtName)
+    }
+    if (directMatch != null) return directMatch.districtId
+
+    val numericId = districtName?.trim()?.toIntOrNull()
+    if (numericId != null && catalog.districts.any { it.districtId == numericId }) {
+        return numericId
+    }
+
+    val keywordMatch = when {
+        normalizedTarget.contains("gasabo") -> "gasabo"
+        normalizedTarget.contains("kicukiro") -> "kicukiro"
+        normalizedTarget.contains("nyarugenge") -> "nyarugenge"
+        else -> null
+    }
+    if (keywordMatch != null) {
+        return catalog.districts
+            .firstOrNull { normalizeLocationName(it.districtName) == keywordMatch }
+            ?.districtId
+    }
+
+    return catalog.districts.firstOrNull { district ->
+        val districtNormalized = normalizeLocationName(district.districtName)
+        districtNormalized.contains(normalizedTarget) ||
+            normalizedTarget.contains(districtNormalized)
+    }?.districtId
+}
+
+private fun sameName(left: String?, right: String?): Boolean {
+    val rawLeft = left.orEmpty().trim()
+    val rawRight = right.orEmpty().trim()
+    if (rawLeft.equals(rawRight, ignoreCase = true)) return true
+    return normalizeLocationName(rawLeft) == normalizeLocationName(rawRight)
+}
+
+private fun normalizeLocationName(value: String?): String {
+    return value
+        .orEmpty()
+        .trim()
+        .lowercase(Locale.getDefault())
+        .replace("district", "")
+        .replace("sector", "")
+        .replace("cell", "")
+        .replace("village", "")
+        .replace(Regex("[^a-z0-9]"), "")
+}
+
+private fun isKigaliDistrict(name: String?): Boolean {
+    return when (normalizeLocationName(name)) {
+        "gasabo", "kicukiro", "nyarugenge" -> true
+        else -> false
+    }
 }

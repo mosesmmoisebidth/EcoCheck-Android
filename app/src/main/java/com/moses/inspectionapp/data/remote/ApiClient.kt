@@ -97,7 +97,12 @@ object ApiClient {
     }
 
     private fun resolvedBaseUrl(): String {
-        val raw = AppPreferences.apiBaseUrl ?: BuildConfig.API_BASE_URL
+        // Always force release builds to use the production base URL from BuildConfig.
+        val raw = if (BuildConfig.DEBUG) {
+            AppPreferences.apiBaseUrl ?: BuildConfig.API_BASE_URL
+        } else {
+            BuildConfig.API_BASE_URL
+        }
         val normalized = normalizeBaseUrl(raw)
         return adjustForRuntime(normalized)
     }

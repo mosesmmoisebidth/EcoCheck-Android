@@ -70,9 +70,15 @@ fun FacilityDetailsScreen(
     val inspections = repository.inspections.collectAsState().value
     val user = repository.userProfile.collectAsState().value
     val selectedId = DraftStore.selectedFacilityId.collectAsState().value
-    val facility = facilities.firstOrNull { it.id == selectedId }
+    val facility = facilities.firstOrNull { facilityItem ->
+        facilityItem.id == selectedId || facilityItem.serverId == selectedId
+    }
+    val facilityKeys = listOfNotNull(
+        facility?.id?.takeIf { it.isNotBlank() },
+        facility?.serverId?.takeIf { it.isNotBlank() },
+    ).toSet()
     val lastInspection = inspections
-        .filter { it.facilityId == selectedId }
+        .filter { inspection -> inspection.facilityId in facilityKeys }
         .maxByOrNull { it.createdAt }
     val now = System.currentTimeMillis()
     val canEdit = facility != null &&

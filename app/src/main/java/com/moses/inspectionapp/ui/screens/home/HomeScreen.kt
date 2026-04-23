@@ -51,6 +51,10 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import com.moses.inspectionapp.data.model.SyncStatus
+import com.moses.inspectionapp.data.model.UserRoleType
+import com.moses.inspectionapp.data.model.parseUserRole
+import java.util.Locale
 
 @Composable
 fun HomeScreen(
@@ -64,10 +68,39 @@ fun HomeScreen(
 ) {
     val repository = AppContainer.repository
     val user = repository.userProfile.collectAsState().value
-    val stats = repository.stats.collectAsState().value
-    val pending = repository.pendingCounts.collectAsState().value
+    val facilities = repository.facilities.collectAsState().value
+    val inspections = repository.inspections.collectAsState().value
+    val roleType = parseUserRole(user.role)
     val isSyncing by SyncStateStore.isSyncing.collectAsState()
-    val pendingCount = pending.facilities + pending.inspections
+    val scopedFacilities = facilities.filter { facility ->
+        when (roleType) {
+            UserRoleType.HSO -> {
+                facility.createdBy == user.id &&
+                    sameName(facility.district, user.district) &&
+                    sameName(facility.sector, user.sector)
+            }
+            UserRoleType.DISTRICT_MANAGER -> sameName(facility.district, user.district)
+            UserRoleType.CITY_MANAGER -> isKigaliDistrict(facility.district)
+            UserRoleType.OTHER -> true
+        }
+    }
+    val scopedFacilityIds = scopedFacilities
+        .flatMap { facility -> listOfNotNull(facility.id, facility.serverId) }
+        .filter { it.isNotBlank() }
+        .toSet()
+    val scopedInspections = inspections.filter { inspection ->
+        val facilityInScope = inspection.facilityId in scopedFacilityIds
+        if (!facilityInScope) return@filter false
+        when (roleType) {
+            UserRoleType.HSO -> inspection.createdBy == user.id
+            else -> true
+        }
+    }
+    val todayInspectionsCount = scopedInspections.count { isSameDay(it.createdAt) }
+    val weekInspectionsCount = scopedInspections.count { isWithinLastDays(it.createdAt, 7) }
+    val pendingFacilityCount = scopedFacilities.count { it.syncStatus == SyncStatus.PENDING }
+    val pendingInspectionCount = scopedInspections.count { it.syncStatus == SyncStatus.PENDING }
+    val pendingCount = pendingFacilityCount + pendingInspectionCount
     val ty = LocalAppTypography.current
     val infiniteTransition = rememberInfiniteTransition(label = "syncRotation")
     val syncRotation by infiniteTransition.animateFloat(
@@ -133,7 +166,7 @@ fun HomeScreen(
                         ) {
                             StatChip(
                                 label = stringResource(R.string.stat_today_label),
-                                value = stats.todayInspections.toString(),
+                                value = todayInspectionsCount.toString(),
                                 dotColor = dotToday,
                                 modifier = Modifier.weight(1f),
                             )
@@ -145,7 +178,7 @@ fun HomeScreen(
                             )
                             StatChip(
                                 label = stringResource(R.string.stat_week_label),
-                                value = stats.weekInspections.toString(),
+                                value = weekInspectionsCount.toString(),
                                 dotColor = dotWeek,
                                 modifier = Modifier.weight(1f),
                             )
@@ -269,6 +302,46 @@ fun HomeScreen(
             }
         }
     }
+}
+
+private fun sameName(left: String?, right: String?): Boolean {
+    val rawLeft = left.orEmpty().trim()
+    val rawRight = right.orEmpty().trim()
+    if (rawLeft.equals(rawRight, ignoreCase = true)) return true
+    return normalizeLocationName(rawLeft) == normalizeLocationName(rawRight)
+}
+
+private fun normalizeLocationName(value: String?): String {
+    return value
+        .orEmpty()
+        .trim()
+        .lowercase(Locale.getDefault())
+        .replace("district", "")
+        .replace("sector", "")
+        .replace("cell", "")
+        .replace("village", "")
+        .replace(Regex("[^a-z0-9]"), "")
+}
+
+private fun isKigaliDistrict(name: String?): Boolean {
+    return when (normalizeLocationName(name)) {
+        "gasabo", "kicukiro", "nyarugenge" -> true
+        else -> false
+    }
+}
+
+private fun isSameDay(timestamp: Long): Boolean {
+    val zoneId = java.time.ZoneId.systemDefault()
+    val date = java.time.Instant.ofEpochMilli(timestamp).atZone(zoneId).toLocalDate()
+    val today = java.time.LocalDate.now(zoneId)
+    return date == today
+}
+
+private fun isWithinLastDays(timestamp: Long, days: Int): Boolean {
+    val zoneId = java.time.ZoneId.systemDefault()
+    val date = java.time.Instant.ofEpochMilli(timestamp).atZone(zoneId).toLocalDate()
+    val today = java.time.LocalDate.now(zoneId)
+    return !date.isBefore(today.minusDays((days - 1).toLong())) && !date.isAfter(today)
 }
 
 @Composable

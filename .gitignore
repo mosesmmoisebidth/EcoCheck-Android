@@ -9,6 +9,16 @@
 # Java/Kotlin class files
 *.class
 
+# Gradle
+.gradle/
+build/
+*/build/
+
+# Kotlin / IDE temp
+.kotlinc/
+
+.gradle-user/
+
 # Generated files
 bin/
 gen/
@@ -34,7 +44,7 @@ proguard/
 *.ipr
 *.iws
 
-# Release signing
+# Release signingd
 *.jks
 *.keystore
 *.p12

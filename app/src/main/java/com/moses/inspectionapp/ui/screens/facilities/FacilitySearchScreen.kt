@@ -18,6 +18,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.moses.inspectionapp.R
 import com.moses.inspectionapp.data.AppContainer
+import com.moses.inspectionapp.data.model.UserRoleType
+import com.moses.inspectionapp.data.model.parseUserRole
 import com.moses.inspectionapp.data.store.DraftStore
 import com.moses.inspectionapp.ui.components.AppTopBar
 import com.moses.inspectionapp.ui.components.EmptyState
@@ -28,6 +30,7 @@ import com.moses.inspectionapp.ui.components.StyledTextField
 import com.moses.inspectionapp.ui.theme.AppColors
 import com.moses.inspectionapp.ui.theme.Dimens
 import com.moses.inspectionapp.ui.util.mouseWheelScroll
+import java.util.Locale
 
 @Composable
 fun FacilitySearchScreen(
@@ -39,10 +42,24 @@ fun FacilitySearchScreen(
 ) {
     val repository = AppContainer.repository
     val facilities = repository.facilities.collectAsState().value
+    val user = repository.userProfile.collectAsState().value
+    val roleType = parseUserRole(user.role)
     val (query, setQuery) = remember { mutableStateOf("") }
     val scrollState = rememberScrollState()
     val normalizedQuery = query.trim()
-    val filtered = facilities
+    val roleScopedFacilities = facilities.filter { facility ->
+        when (roleType) {
+            UserRoleType.HSO -> {
+                facility.createdBy == user.id &&
+                    sameName(facility.district, user.district) &&
+                    sameName(facility.sector, user.sector)
+            }
+            UserRoleType.DISTRICT_MANAGER -> sameName(facility.district, user.district)
+            UserRoleType.CITY_MANAGER -> isKigaliDistrict(facility.district)
+            UserRoleType.OTHER -> true
+        }
+    }
+    val filtered = roleScopedFacilities
         .sortedByDescending { it.createdAt }
         .filter { facility ->
             if (normalizedQuery.isBlank()) {
@@ -99,6 +116,32 @@ fun FacilitySearchScreen(
             }
             PrimaryButton(text = stringResource(R.string.enroll_new_facility), onClick = onEnrollNew)
         }
+    }
+}
+
+private fun sameName(left: String?, right: String?): Boolean {
+    val rawLeft = left.orEmpty().trim()
+    val rawRight = right.orEmpty().trim()
+    if (rawLeft.equals(rawRight, ignoreCase = true)) return true
+    return normalizeLocationName(rawLeft) == normalizeLocationName(rawRight)
+}
+
+private fun normalizeLocationName(value: String?): String {
+    return value
+        .orEmpty()
+        .trim()
+        .lowercase(Locale.getDefault())
+        .replace("district", "")
+        .replace("sector", "")
+        .replace("cell", "")
+        .replace("village", "")
+        .replace(Regex("[^a-z0-9]"), "")
+}
+
+private fun isKigaliDistrict(name: String?): Boolean {
+    return when (normalizeLocationName(name)) {
+        "gasabo", "kicukiro", "nyarugenge" -> true
+        else -> false
     }
 }
 

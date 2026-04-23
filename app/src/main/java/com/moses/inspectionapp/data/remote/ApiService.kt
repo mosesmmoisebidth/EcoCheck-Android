@@ -1,6 +1,7 @@
 package com.moses.inspectionapp.data.remote
 
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.PATCH
 import retrofit2.http.POST
@@ -77,4 +78,44 @@ interface InspectionApi {
 
     @GET("sync/conflicts")
     suspend fun syncConflicts(): ApiResponse<SyncConflictsResponse>
+
+    @GET("dashboard/stats")
+    suspend fun getDashboardStats(): ApiResponse<DashboardStatsResponse>
+
+    @GET("dashboard/charts/inspections-over-time")
+    suspend fun getInspectionsOverTime(): ApiResponse<List<DashboardCountPointResponse>>
+
+    @GET("dashboard/charts/compliance-trend")
+    suspend fun getComplianceTrend(): ApiResponse<List<DashboardCompliancePointResponse>>
+
+    @GET("dashboard/charts/decisions-breakdown")
+    suspend fun getDecisionsBreakdown(): ApiResponse<List<DashboardDecisionBreakdownResponse>>
+
+    @GET("dashboard/top-offenders")
+    suspend fun getTopOffenders(
+        @Query("limit") limit: Int = 5,
+    ): ApiResponse<List<DashboardTopOffenderResponse>>
+
+    @GET("users")
+    suspend fun getUsers(): ApiResponse<List<UserManagementResponse>>
+
+    @POST("users")
+    suspend fun createUser(
+        @Body request: CreateUserManagementRequest,
+    ): ApiResponse<UserManagementResponse>
+
+    @POST("users/{id}/resend-activation")
+    suspend fun resendActivation(
+        @Path("id") id: String,
+    ): ApiResponse<UserManagementResponse>
+
+    @PATCH("users/{id}/deactivate")
+    suspend fun deactivateUser(
+        @Path("id") id: String,
+    ): ApiResponse<UserManagementResponse>
+
+    @DELETE("users/{id}")
+    suspend fun deleteUser(
+        @Path("id") id: String,
+    ): ApiResponse<Map<String, Any>>
 }

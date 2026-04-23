@@ -22,6 +22,7 @@ object MainRoute {
     const val Sync = "sync"
     const val SyncConflicts = "sync/conflicts"
     const val Stats = "stats"
+    const val UserManagement = "profile/user-management"
     const val Settings = "profile/settings"
     const val Notifications = "profile/notifications"
     const val Profile = "profile"

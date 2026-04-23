@@ -254,3 +254,63 @@ data class SyncConflictsResponse(
     val facilities: List<FacilityResponse>,
     val inspections: List<InspectionResponse>,
 )
+
+data class DashboardStatsResponse(
+    val total_inspections: Int = 0,
+    val premises_inspected: Int = 0,
+    val total_fines: Int = 0,
+    val faults_found: Int = 0,
+    val avg_fine: Int = 0,
+    val compliance_rate: Int = 0,
+    val closure_warning_count: Int = 0,
+    val repeat_offenders: Int = 0,
+    val period_change_pct: Int = 0,
+)
+
+data class DashboardCountPointResponse(
+    val date: String,
+    val count: Int = 0,
+)
+
+data class DashboardCompliancePointResponse(
+    val date: String,
+    val compliance_rate: Int = 0,
+)
+
+data class DashboardDecisionBreakdownResponse(
+    val decision: String,
+    val count: Int = 0,
+)
+
+data class DashboardTopOffenderResponse(
+    val facility_id: String,
+    val facility_name: String,
+    val sector: String? = null,
+    val total_faults: Int = 0,
+    val total_fines: Int = 0,
+    val inspection_count: Int = 0,
+)
+
+data class UserManagementResponse(
+    val id: String,
+    val fullName: String,
+    val email: String,
+    val phone: String? = null,
+    val role: String,
+    val district: String,
+    val sector: String,
+    val isActive: Boolean = true,
+    val activationStatus: String? = null,
+    val activationCode: String? = null,
+    val activationExpiresAt: Long? = null,
+)
+
+data class CreateUserManagementRequest(
+    val fullName: String,
+    val email: String,
+    val password: String? = null,
+    val role: String,
+    val district: String,
+    val sector: String,
+    val phone: String? = null,
+)

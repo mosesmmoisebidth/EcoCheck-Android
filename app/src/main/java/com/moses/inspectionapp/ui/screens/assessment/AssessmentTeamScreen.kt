@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import com.moses.inspectionapp.R
 import com.moses.inspectionapp.data.AppContainer
 import com.moses.inspectionapp.data.store.DraftStore
+import com.moses.inspectionapp.data.validator.InputValidators
 import com.moses.inspectionapp.ui.components.AppTopBar
 import com.moses.inspectionapp.ui.components.ClickableCard
 import com.moses.inspectionapp.ui.components.OfflineBanner
@@ -73,10 +74,19 @@ fun AssessmentTeamScreen(
     val customMembers = repository.customTeamMembers.collectAsState().value
     val facilities = repository.facilities.collectAsState().value
     val inspections = repository.inspections.collectAsState().value
-    val facility = facilities.firstOrNull { it.id == draft.facilityId }
+    val facility = facilities.firstOrNull { facilityItem ->
+        facilityItem.id == draft.facilityId || facilityItem.serverId == draft.facilityId
+    }
     val sectorName = facility?.sector ?: user.sector
     val scope = rememberCoroutineScope()
-    val facilitiesById = remember(facilities) { facilities.associateBy { it.id } }
+    val facilitiesById = remember(facilities) {
+        facilities.flatMap { facilityItem ->
+            listOfNotNull(
+                facilityItem.id.takeIf { it.isNotBlank() }?.let { it to facilityItem },
+                facilityItem.serverId?.takeIf { it.isNotBlank() }?.let { it to facilityItem },
+            )
+        }.toMap()
+    }
     val customMemberLookup = remember(customMembers) {
         customMembers
             .map(::normalizeMemberName)
@@ -106,6 +116,7 @@ fun AssessmentTeamScreen(
     val canContinue = selected.value.isNotEmpty()
     val steps = assessmentStepLabels()
     val memberNameRequiredError = stringResource(R.string.team_member_name_required)
+    val memberNameInvalidError = stringResource(R.string.user_name_validation)
     val memberInputHint = stringResource(R.string.team_member_input_help)
 
     LaunchedEffect(draft.teamMembers, user.fullName, hasInitializedSelection.value) {
@@ -128,6 +139,8 @@ fun AssessmentTeamScreen(
         val normalizedName = normalizeMemberName(newMemberName.value)
         if (normalizedName.isBlank()) {
             newMemberError.value = memberNameRequiredError
+        } else if (!InputValidators.isValidName(normalizedName)) {
+            newMemberError.value = memberNameInvalidError
         } else {
             val existingMatch = members.firstOrNull { it.equals(normalizedName, ignoreCase = true) }
             val memberToSelect = existingMatch ?: normalizedName
@@ -246,7 +259,7 @@ fun AssessmentTeamScreen(
                         StyledTextField(
                             value = newMemberName.value,
                             onValueChange = {
-                                newMemberName.value = it
+                                newMemberName.value = InputValidators.normalizeName(it)
                                 newMemberError.value = null
                             },
                             label = stringResource(R.string.team_member_name),
@@ -403,7 +416,11 @@ fun AssessmentTeamScreen(
 }
 
 private fun normalizeMemberName(raw: String): String {
-    return raw.trim().split(Regex("\\s+")).filter { it.isNotBlank() }.joinToString(" ")
+    return InputValidators.normalizeName(raw)
+        .trim()
+        .split(Regex("\\s+"))
+        .filter { it.isNotBlank() }
+        .joinToString(" ")
 }
 
 private fun mergedMembers(rawMembers: List<String>): List<String> {

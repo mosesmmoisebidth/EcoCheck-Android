@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Badge
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Email
+import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LocationCity
 import androidx.compose.material.icons.rounded.Logout
@@ -53,7 +54,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.moses.inspectionapp.R
 import com.moses.inspectionapp.data.AppContainer
+import com.moses.inspectionapp.data.model.isManager
+import com.moses.inspectionapp.data.model.parseUserRole
 import com.moses.inspectionapp.data.remote.AuthRepository
+import com.moses.inspectionapp.data.validator.InputValidators
 import com.moses.inspectionapp.ui.components.ClickableCard
 import com.moses.inspectionapp.ui.components.InfoRow
 import com.moses.inspectionapp.ui.components.PrimaryButton
@@ -70,9 +74,14 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
 
 @Composable
-fun ProfileScreen(onSettings: () -> Unit = {}, onLogout: () -> Unit = {}) {
+fun ProfileScreen(
+    onSettings: () -> Unit = {},
+    onManageUsers: () -> Unit = {},
+    onLogout: () -> Unit = {},
+) {
     val repository = AppContainer.repository
     val user = repository.userProfile.collectAsState().value
+    val roleType = parseUserRole(user.role)
     val authRepository = remember { AuthRepository() }
     val scope = rememberCoroutineScope()
     var isLoggingOut by remember { mutableStateOf(false) }
@@ -102,6 +111,8 @@ fun ProfileScreen(onSettings: () -> Unit = {}, onLogout: () -> Unit = {}) {
     val passwordUpdatedText = stringResource(R.string.password_updated)
     val emailUpdatedText = stringResource(R.string.email_updated)
     val passwordMinLengthText = stringResource(R.string.password_min_length)
+    val invalidNameText = stringResource(R.string.user_name_validation)
+    val invalidEmailText = stringResource(R.string.user_email_validation)
     val scrollState = rememberScrollState()
     val sp = LocalAppSpacing.current
 
@@ -215,13 +226,25 @@ fun ProfileScreen(onSettings: () -> Unit = {}, onLogout: () -> Unit = {}) {
                         )
                         StyledTextField(
                             value = firstName,
-                            onValueChange = { firstName = it },
+                            onValueChange = { firstName = InputValidators.normalizeName(it) },
                             label = stringResource(R.string.first_name),
+                            isError = firstName.isNotBlank() && !InputValidators.isValidName(firstName),
+                            errorText = if (firstName.isNotBlank() && !InputValidators.isValidName(firstName)) {
+                                invalidNameText
+                            } else {
+                                null
+                            },
                         )
                         StyledTextField(
                             value = lastName,
-                            onValueChange = { lastName = it },
+                            onValueChange = { lastName = InputValidators.normalizeName(it) },
                             label = stringResource(R.string.last_name),
+                            isError = lastName.isNotBlank() && !InputValidators.isValidName(lastName),
+                            errorText = if (lastName.isNotBlank() && !InputValidators.isValidName(lastName)) {
+                                invalidNameText
+                            } else {
+                                null
+                            },
                         )
                         PrimaryButton(
                             text = stringResource(R.string.save_profile),
@@ -231,6 +254,11 @@ fun ProfileScreen(onSettings: () -> Unit = {}, onLogout: () -> Unit = {}) {
                                 saveMessage = null
                                 saveError = null
                                 scope.launch {
+                                    if (!InputValidators.isValidName(firstName) || !InputValidators.isValidName(lastName)) {
+                                        isSaving = false
+                                        saveError = invalidNameText
+                                        return@launch
+                                    }
                                     val result = authRepository.updateProfile(
                                         firstName.trim(),
                                         lastName.trim(),
@@ -269,9 +297,15 @@ fun ProfileScreen(onSettings: () -> Unit = {}, onLogout: () -> Unit = {}) {
                     Column(modifier = Modifier.padding(Dimens.cardPadding), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     StyledTextField(
                         value = emailInput,
-                        onValueChange = { emailInput = it },
+                        onValueChange = { emailInput = InputValidators.normalizeEmail(it) },
                         label = stringResource(R.string.new_email),
                         leadingIcon = Icons.Rounded.Email,
+                        isError = emailInput.isNotBlank() && !InputValidators.isValidEmail(emailInput),
+                        errorText = if (emailInput.isNotBlank() && !InputValidators.isValidEmail(emailInput)) {
+                            invalidEmailText
+                        } else {
+                            null
+                        },
                     )
                     StyledTextField(
                         value = emailPassword,
@@ -306,6 +340,11 @@ fun ProfileScreen(onSettings: () -> Unit = {}, onLogout: () -> Unit = {}) {
                             emailMessage = null
                             emailError = null
                             scope.launch {
+                                if (!InputValidators.isValidEmail(emailInput)) {
+                                    isChangingEmail = false
+                                    emailError = invalidEmailText
+                                    return@launch
+                                }
                                 val result = authRepository.changeEmail(
                                     email = emailInput.trim(),
                                     password = emailPassword,
@@ -321,7 +360,7 @@ fun ProfileScreen(onSettings: () -> Unit = {}, onLogout: () -> Unit = {}) {
                             }
                         },
                         isLoading = isChangingEmail,
-                        enabled = emailInput.isNotBlank() && emailPassword.isNotBlank() && !isChangingEmail,
+                        enabled = InputValidators.isValidEmail(emailInput) && emailPassword.isNotBlank() && !isChangingEmail,
                     )
                     if (!emailMessage.isNullOrBlank()) {
                         Text(
@@ -488,6 +527,32 @@ fun ProfileScreen(onSettings: () -> Unit = {}, onLogout: () -> Unit = {}) {
                 }
 
                 SectionHeader(title = stringResource(R.string.account))
+                if (roleType.isManager()) {
+                    ClickableCard(onClick = onManageUsers) {
+                        Row(
+                            modifier = Modifier.padding(Dimens.cardPadding),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(Dimens.itemGap),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Groups,
+                                contentDescription = null,
+                                tint = AppColors.SteelBlue,
+                            )
+                            Text(
+                                text = stringResource(R.string.manage_users),
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.weight(1f),
+                                color = AppColors.TextPrimary,
+                            )
+                            Icon(
+                                imageVector = Icons.Rounded.ChevronRight,
+                                contentDescription = null,
+                                tint = AppColors.TextSecondary,
+                            )
+                        }
+                    }
+                }
                 ClickableCard(onClick = onSettings) {
                     Row(
                         modifier = Modifier.padding(Dimens.cardPadding),
